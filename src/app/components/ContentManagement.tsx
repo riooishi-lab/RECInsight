@@ -20,6 +20,7 @@ import {
   Settings2,
   Eye,
   EyeOff,
+  Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -350,6 +351,7 @@ export function ContentManagement() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-16">サムネイル</TableHead>
                           <TableHead>タイトル</TableHead>
                           <TableHead>サブカテゴリ</TableHead>
                           {settings.enabled && <TableHead>公開ステップ</TableHead>}
@@ -361,15 +363,32 @@ export function ContentManagement() {
                         {catVideos.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={settings.enabled ? 5 : 4}
+                              colSpan={settings.enabled ? 6 : 5}
                               className="text-center py-4 text-gray-400"
                             >
                               このカテゴリに動画はありません
                             </TableCell>
                           </TableRow>
                         ) : (
-                          catVideos.map((video) => (
+                          catVideos.map((video) => {
+                            const youtubeId = video.video_url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1];
+                            const thumbnailSrc = video.thumbnail_url || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg` : null);
+                            return (
                             <TableRow key={video.id}>
+                              <TableCell>
+                                {thumbnailSrc ? (
+                                  <img
+                                    src={thumbnailSrc}
+                                    alt={video.title}
+                                    className="w-14 h-9 object-cover rounded border"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                                  />
+                                ) : (
+                                  <div className="w-14 h-9 rounded border bg-gray-100 flex items-center justify-center">
+                                    <ImageIcon className="h-4 w-4 text-gray-400" />
+                                  </div>
+                                )}
+                              </TableCell>
                               <TableCell className="font-medium">{video.title}</TableCell>
                               <TableCell>
                                 <Badge variant="outline">{video.subcategory}</Badge>
@@ -426,7 +445,7 @@ export function ContentManagement() {
                                 </div>
                               </TableCell>
                             </TableRow>
-                          ))
+                          )})
                         )}
                       </TableBody>
                     </Table>

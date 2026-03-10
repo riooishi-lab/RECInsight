@@ -31,6 +31,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
   const [youtubeUrl, setYoutubeUrl] = useState(video?.video_url?.startsWith('https://www.youtube.com') || video?.video_url?.startsWith('https://youtu.be') ? video.video_url : "");
   const [driveUrl, setDriveUrl] = useState(video?.video_url?.startsWith('https://drive.google.com') ? video.video_url : "");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnail_url || "");
   const [loading, setLoading] = useState(false);
 
   const selectedCategory = categories.find(c => c.value === category);
@@ -57,6 +58,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
           category,
           subcategory,
           video_url: videoUrl,
+          thumbnail_url: thumbnailUrl || null,
         })
         .eq('id', video.id);
 
@@ -77,6 +79,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
             category,
             subcategory,
             video_url: videoUrl,
+            thumbnail_url: thumbnailUrl || null,
             duration_sec: 300, // デフォルト5分
             available_phases: getStepSettings().steps.map((s) => s.id) // 全ステップ公開
           }
@@ -95,6 +98,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
         setYoutubeUrl("");
         setDriveUrl("");
         setUploadFile(null);
+        setThumbnailUrl("");
       }
     }
     setLoading(false);
@@ -126,6 +130,27 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                 value={videoTitle}
                 onChange={(e) => setVideoTitle(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="thumbnail-url">サムネイル画像URL（任意）</Label>
+              <Input
+                id="thumbnail-url"
+                placeholder="https://example.com/thumbnail.jpg"
+                value={thumbnailUrl}
+                onChange={(e) => setThumbnailUrl(e.target.value)}
+              />
+              <p className="text-sm text-gray-500">
+                未入力の場合はYouTubeのサムネイルを自動取得します
+              </p>
+              {thumbnailUrl && (
+                <img
+                  src={thumbnailUrl}
+                  alt="サムネイルプレビュー"
+                  className="mt-2 rounded border h-24 object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
