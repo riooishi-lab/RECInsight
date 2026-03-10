@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Label } from "./ui/label";
@@ -50,10 +50,61 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
     video?.duration_sec != null ? String(video.duration_sec % 60) : ""
   );
   const [loading, setLoading] = useState(false);
+  const [durationFetching, setDurationFetching] = useState(false);
+  const playerRef = useRef<any>(null);
 
   const selectedCategory = categories.find(c => c.value === category);
   const isBriefing = category === BRIEFING_CATEGORY;
   const youtubeId = extractYouTubeId(youtubeUrl);
+
+  // ─── YouTube URL が変わったら IFrame API で再生時間を自動取得 ───
+  useEffect(() => {
+    if (!youtubeId) return;
+    setDurationFetching(true);
+
+    const divId = `yt-dur-${youtubeId}`;
+    let div = document.getElementById(divId);
+    if (!div) {
+      div = document.createElement("div");
+      div.id = divId;
+      div.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px;";
+      document.body.appendChild(div);
+    }
+
+    const init = () => {
+      playerRef.current?.destroy();
+      playerRef.current = new (window as any).YT.Player(divId, {
+        videoId: youtubeId,
+        playerVars: { autoplay: 0 },
+        events: {
+          onReady: (e: any) => {
+            const dur = Math.round(e.target.getDuration());
+            if (dur > 0) {
+              setDurationMin(String(Math.floor(dur / 60)));
+              setDurationSec(String(dur % 60));
+            }
+            setDurationFetching(false);
+            e.target.destroy();
+            document.getElementById(divId)?.remove();
+          },
+        },
+      });
+    };
+
+    if ((window as any).YT?.Player) {
+      init();
+    } else {
+      const prev = (window as any).onYouTubeIframeAPIReady;
+      (window as any).onYouTubeIframeAPIReady = () => { prev?.(); init(); };
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+      }
+    }
+
+    return () => { setDurationFetching(false); };
+  }, [youtubeId]);
 
   const handleSubmit = async (method: "youtube" | "drive" | "upload") => {
     setLoading(true);
@@ -200,7 +251,12 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
 
               {/* 動画の長さ */}
               <div className="space-y-2">
-                <Label>動画の長さ（任意）</Label>
+                <Label>
+                  動画の長さ（任意）
+                  {durationFetching && (
+                    <span className="ml-2 text-xs text-gray-400 font-normal">取得中...</span>
+                  )}
+                </Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
@@ -208,6 +264,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                     placeholder="0"
                     value={durationMin}
                     onChange={(e) => setDurationMin(e.target.value)}
+                    disabled={durationFetching}
                     className="w-24 text-right"
                   />
                   <span className="text-sm text-gray-600">分</span>
@@ -218,6 +275,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                     placeholder="0"
                     value={durationSec}
                     onChange={(e) => setDurationSec(e.target.value)}
+                    disabled={durationFetching}
                     className="w-24 text-right"
                   />
                   <span className="text-sm text-gray-600">秒</span>
