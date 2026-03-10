@@ -270,6 +270,51 @@ export function StudentPortal() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let currentStep = "STEP1";
+
+        const fetchContent = async (step: string) => {
+            const stepSettings = getStepSettings();
+
+            // ─── 動画取得（公開中 + ステップフィルタ） ───
+            let videoQuery = supabase
+                .from("videos")
+                .select("*")
+                .eq("is_published", true);
+
+            if (stepSettings.enabled) {
+                videoQuery = videoQuery.contains("available_phases", [step]);
+            }
+
+            const { data: videoData } = await videoQuery;
+            setVideos(videoData || []);
+
+            // ─── パンフレット取得（公開中 + ステップフィルタ） ───
+            let brochureQuery = supabase
+                .from("brochures")
+                .select("*")
+                .eq("is_published", true);
+
+            if (stepSettings.enabled) {
+                brochureQuery = brochureQuery.contains("available_phases", [step]);
+            }
+
+            const { data: brochureData } = await brochureQuery;
+            setBrochures(brochureData || []);
+
+            // ─── 記事取得（公開中 + ステップフィルタ） ───
+            let articleQuery = supabase
+                .from("articles")
+                .select("*")
+                .eq("is_published", true);
+
+            if (stepSettings.enabled) {
+                articleQuery = articleQuery.contains("available_phases", [step]);
+            }
+
+            const { data: articleData } = await articleQuery;
+            setArticles(articleData || []);
+        };
+
         const init = async () => {
             const params = new URLSearchParams(window.location.search);
             const token = params.get("token");
@@ -297,7 +342,7 @@ export function StudentPortal() {
             const stepSettings = getStepSettings();
 
             // ─── 現在のステップを特定 ───
-            let currentStep = stepSettings.steps[0]?.id ?? "STEP1";
+            currentStep = stepSettings.steps[0]?.id ?? "STEP1";
             if (stepSettings.enabled) {
                 for (const step of stepSettings.steps) {
                     if ((step.phases as string[]).includes(studentData.phase)) {
@@ -307,49 +352,39 @@ export function StudentPortal() {
                 }
             }
 
-            // ─── 動画取得（公開中 + ステップフィルタ） ───
-            let videoQuery = supabase
-                .from("videos")
-                .select("*")
-                .eq("is_published", true);
-
-            if (stepSettings.enabled) {
-                videoQuery = videoQuery.contains("available_phases", [currentStep]);
-            }
-
-            const { data: videoData } = await videoQuery;
-            setVideos(videoData || []);
-
-            // ─── パンフレット取得（公開中 + ステップフィルタ） ───
-            let brochureQuery = supabase
-                .from("brochures")
-                .select("*")
-                .eq("is_published", true);
-
-            if (stepSettings.enabled) {
-                brochureQuery = brochureQuery.contains("available_phases", [currentStep]);
-            }
-
-            const { data: brochureData } = await brochureQuery;
-            setBrochures(brochureData || []);
-
-            // ─── 記事取得（公開中 + ステップフィルタ） ───
-            let articleQuery = supabase
-                .from("articles")
-                .select("*")
-                .eq("is_published", true);
-
-            if (stepSettings.enabled) {
-                articleQuery = articleQuery.contains("available_phases", [currentStep]);
-            }
-
-            const { data: articleData } = await articleQuery;
-            setArticles(articleData || []);
-
+            await fetchContent(currentStep);
             setLoading(false);
         };
 
         init();
+
+        // ─── リアルタイム購読（公開状態の変更を即時反映） ───
+        const videoChannel = supabase
+            .channel("student-video-changes")
+            .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, () =>
+                fetchContent(currentStep)
+            )
+            .subscribe();
+
+        const brochureChannel = supabase
+            .channel("student-brochure-changes")
+            .on("postgres_changes", { event: "*", schema: "public", table: "brochures" }, () =>
+                fetchContent(currentStep)
+            )
+            .subscribe();
+
+        const articleChannel = supabase
+            .channel("student-article-changes")
+            .on("postgres_changes", { event: "*", schema: "public", table: "articles" }, () =>
+                fetchContent(currentStep)
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(videoChannel);
+            supabase.removeChannel(brochureChannel);
+            supabase.removeChannel(articleChannel);
+        };
     }, []);
 
     if (loading) {
