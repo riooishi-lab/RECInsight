@@ -51,6 +51,7 @@ export interface Video {
     subcategory: string | null
     duration_sec: number | null
     video_url: string | null
+    thumbnail_url: string | null
     available_phases: Phase[] | null
     is_published: boolean
     created_at: string

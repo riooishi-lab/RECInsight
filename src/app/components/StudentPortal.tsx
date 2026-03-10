@@ -27,6 +27,7 @@ const extractYouTubeId = (url: string): string | null => {
 };
 
 const getThumbnail = (video: Video) => {
+    if (video.thumbnail_url) return video.thumbnail_url;
     const youtubeId = video.video_url ? extractYouTubeId(video.video_url) : null;
     if (youtubeId) return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
     return null;
