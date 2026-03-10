@@ -14,14 +14,17 @@ import { VideoThumbnailScrubber } from "./VideoThumbnailScrubber";
 interface AddVideoDialogProps {
   children: React.ReactNode;
   onSuccess?: () => void;
-  video?: Video; // 編集モード用の動画データ
+  video?: Video;
 }
+
+export const BRIEFING_CATEGORY = "会社説明会";
 
 const categories = [
   { value: "目標の魅力", subcategories: ["会社基盤", "理念戦略"] },
   { value: "人材の魅力", subcategories: ["組織風土", "人的魅力"] },
   { value: "活動の魅力", subcategories: ["事業内容", "仕事内容"] },
   { value: "条件の魅力", subcategories: ["報酬体系", "仕事環境"] },
+  { value: BRIEFING_CATEGORY, subcategories: [] },
 ];
 
 function extractYouTubeId(url: string): string | null {
@@ -43,6 +46,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
   const [loading, setLoading] = useState(false);
 
   const selectedCategory = categories.find(c => c.value === category);
+  const isBriefing = category === BRIEFING_CATEGORY;
   const youtubeId = extractYouTubeId(youtubeUrl);
 
   const handleSubmit = async (method: "youtube" | "drive" | "upload") => {
@@ -52,20 +56,19 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
     if (method === "youtube") videoUrl = youtubeUrl;
     else if (method === "drive") videoUrl = driveUrl;
     else if (method === "upload" && uploadFile) {
-      // 本来は Supabase Storage にアップロードするが、今回は簡易的にファイル名を保持（またはURL取得処理）
-      // ※現状はURLなしで登録、またはStorage実装が必要。一旦URLパスとして扱う。
       videoUrl = `upload://${uploadFile.name}`;
       toast.info("ファイルアップロードはURLの保持のみ行います（Storage機能は別途実装が必要です）");
     }
 
+    const finalSubcategory = isBriefing ? "" : subcategory;
+
     if (video) {
-      // 編集モード
       const { error } = await supabase
         .from('videos')
         .update({
           title: videoTitle,
           category,
-          subcategory,
+          subcategory: finalSubcategory,
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl || null,
         })
@@ -79,18 +82,17 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
         setOpen(false);
       }
     } else {
-      // 新規追加モード
       const { error } = await supabase
         .from('videos')
         .insert([
           {
             title: videoTitle,
             category,
-            subcategory,
+            subcategory: finalSubcategory,
             video_url: videoUrl,
             thumbnail_url: thumbnailUrl || null,
-            duration_sec: 300, // デフォルト5分
-            available_phases: getStepSettings().steps.map((s) => s.id) // 全ステップ公開
+            duration_sec: 300,
+            available_phases: getStepSettings().steps.map((s) => s.id)
           }
         ]);
 
@@ -100,7 +102,6 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
         toast.success("動画を追加しました");
         onSuccess?.();
         setOpen(false);
-        // フォームをリセット
         setVideoTitle("");
         setCategory("");
         setSubcategory("");
@@ -112,6 +113,12 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
     }
     setLoading(false);
   };
+
+  const canSubmit = (url: string) =>
+    !loading && !!videoTitle && !!category && (isBriefing || !!subcategory) && !!url;
+  const canSubmitUpload =
+    !loading && !!videoTitle && !!category && (isBriefing || !!subcategory) &&
+    (!!(uploadFile) || !!video?.video_url?.startsWith('upload://'));
 
   return (
     <>
@@ -179,12 +186,12 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className={isBriefing ? "" : "grid grid-cols-2 gap-4"}>
                 <div className="space-y-2">
                   <Label htmlFor="category">カテゴリ *</Label>
                   <Select value={category} onValueChange={(value) => {
                     setCategory(value);
-                    setSubcategory(""); // カテゴリ変更時にサブカテゴリをリセット
+                    setSubcategory("");
                   }}>
                     <SelectTrigger id="category">
                       <SelectValue placeholder="選択してください" />
@@ -199,26 +206,34 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="subcategory">サブカテゴリ *</Label>
-                  <Select
-                    value={subcategory}
-                    onValueChange={setSubcategory}
-                    disabled={!category}
-                  >
-                    <SelectTrigger id="subcategory">
-                      <SelectValue placeholder="選択してください" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedCategory?.subcategories.map(sub => (
-                        <SelectItem key={sub} value={sub}>
-                          {sub}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {!isBriefing && (
+                  <div className="space-y-2">
+                    <Label htmlFor="subcategory">サブカテゴリ *</Label>
+                    <Select
+                      value={subcategory}
+                      onValueChange={setSubcategory}
+                      disabled={!category}
+                    >
+                      <SelectTrigger id="subcategory">
+                        <SelectValue placeholder="選択してください" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedCategory?.subcategories.map(sub => (
+                          <SelectItem key={sub} value={sub}>
+                            {sub}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
+
+              {isBriefing && (
+                <p className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
+                  会社説明会動画は学生ポータルの最上部に大きく表示されます
+                </p>
+              )}
             </div>
 
             {/* 動画ソース */}
@@ -251,12 +266,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                     YouTube動画のURLを入力してください
                   </p>
                 </div>
-
-                <Button
-                  onClick={() => handleSubmit("youtube")}
-                  disabled={!videoTitle || !category || !subcategory || !youtubeUrl || loading}
-                  className="w-full"
-                >
+                <Button onClick={() => handleSubmit("youtube")} disabled={!canSubmit(youtubeUrl)} className="w-full">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {video ? "変更を保存" : "YouTubeリンクで追加"}
                 </Button>
@@ -275,12 +285,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                     Googleドライブの動画リンクを入力してください（共有設定を「リンクを知っている全員」に変更してください）
                   </p>
                 </div>
-
-                <Button
-                  onClick={() => handleSubmit("drive")}
-                  disabled={!videoTitle || !category || !subcategory || !driveUrl || loading}
-                  className="w-full"
-                >
+                <Button onClick={() => handleSubmit("drive")} disabled={!canSubmit(driveUrl)} className="w-full">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {video ? "変更を保存" : "Googleドライブリンクで追加"}
                 </Button>
@@ -306,12 +311,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                     </div>
                   )}
                 </div>
-
-                <Button
-                  onClick={() => handleSubmit("upload")}
-                  disabled={!videoTitle || !category || !subcategory || (!uploadFile && !video?.video_url?.startsWith('upload://')) || loading}
-                  className="w-full"
-                >
+                <Button onClick={() => handleSubmit("upload")} disabled={!canSubmitUpload} className="w-full">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {video ? "変更を保存" : "ファイルをアップロードして追加"}
                 </Button>

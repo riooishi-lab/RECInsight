@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { getStepSettings } from "../hooks/useStepSettings";
+import { BRIEFING_CATEGORY } from "./AddVideoDialog";
 import type { Student, Video, Brochure, Article, WatchEventType } from "../../lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 import { Play, Clock, ArrowLeft, AlertCircle, BookOpen, FileText, ExternalLink } from "lucide-react";
@@ -414,6 +415,8 @@ export function StudentPortal() {
 
     if (!student) return null;
 
+    const briefingVideos = videos.filter((v) => v.category === BRIEFING_CATEGORY);
+    const regularVideos = videos.filter((v) => v.category !== BRIEFING_CATEGORY);
     const totalContent = videos.length + brochures.length + articles.length;
 
     return (
@@ -436,23 +439,71 @@ export function StudentPortal() {
                         onBack={() => setSelectedVideo(null)}
                     />
                 ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
                         <div>
                             <h2 className="text-2xl font-bold">{student.name} 様へのコンテンツ</h2>
                             <p className="text-gray-500 mt-1">限定公開のコンテンツです。ぜひご覧ください。</p>
                         </div>
+
+                        {/* 会社説明会動画（最上部に大きく表示） */}
+                        {briefingVideos.length > 0 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-lg font-bold text-[#0079B3]">会社説明会</h3>
+                                    <span className="text-xs bg-[#0079B3] text-white px-2 py-0.5 rounded-full">必見</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {briefingVideos.map((video) => (
+                                        <Card
+                                            key={video.id}
+                                            className="group hover:shadow-xl transition-all cursor-pointer border-[#0079B3]/20"
+                                            onClick={() => setSelectedVideo(video)}
+                                        >
+                                            <CardContent className="p-0">
+                                                <div className="relative aspect-video bg-gray-100 rounded-t-lg flex items-center justify-center overflow-hidden">
+                                                    <ImageWithFallback
+                                                        src={getThumbnail(video) || ""}
+                                                        alt={video.title}
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg">
+                                                            <Play className="h-8 w-8 text-[#0079B3] ml-1" fill="currentColor" />
+                                                        </div>
+                                                    </div>
+                                                    {video.duration_sec && (
+                                                        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                                                            <Clock className="h-3 w-3" />
+                                                            {Math.floor(video.duration_sec / 60)}分
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="p-5 space-y-2">
+                                                    <h3 className="text-base font-bold line-clamp-2 group-hover:text-[#0079B3] transition-colors">
+                                                        {video.title}
+                                                    </h3>
+                                                    {video.description && (
+                                                        <p className="text-sm text-gray-600 line-clamp-2">{video.description}</p>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {totalContent === 0 ? (
                             <div className="text-center py-16 text-gray-400">
                                 <Play className="h-12 w-12 mx-auto mb-3 opacity-40" />
                                 <p>現在公開中のコンテンツはありません</p>
                             </div>
-                        ) : (
+                        ) : (regularVideos.length > 0 || brochures.length > 0 || articles.length > 0) && (
                             <Tabs defaultValue="videos">
                                 <TabsList className="grid grid-cols-3 max-w-sm">
                                     <TabsTrigger value="videos" className="gap-1.5">
                                         <Play className="h-3.5 w-3.5" />
-                                        動画 ({videos.length})
+                                        動画 ({regularVideos.length})
                                     </TabsTrigger>
                                     <TabsTrigger value="brochures" className="gap-1.5">
                                         <BookOpen className="h-3.5 w-3.5" />
@@ -466,14 +517,14 @@ export function StudentPortal() {
 
                                 {/* 動画タブ */}
                                 <TabsContent value="videos" className="mt-6">
-                                    {videos.length === 0 ? (
+                                    {regularVideos.length === 0 ? (
                                         <div className="text-center py-12 text-gray-400">
                                             <Play className="h-10 w-10 mx-auto mb-2 opacity-40" />
                                             <p>公開中の動画はありません</p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {videos.map((video) => (
+                                            {regularVideos.map((video) => (
                                                 <Card
                                                     key={video.id}
                                                     className="group hover:shadow-lg transition-all cursor-pointer"

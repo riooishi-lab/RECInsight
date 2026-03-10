@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { AddVideoDialog } from "./AddVideoDialog";
+import { AddVideoDialog, BRIEFING_CATEGORY } from "./AddVideoDialog";
 import { AddBrochureDialog } from "./AddBrochureDialog";
 import { AddArticleDialog } from "./AddArticleDialog";
 import { supabase } from "../../lib/supabase";
@@ -336,7 +336,88 @@ export function ContentManagement() {
           {videosLoading ? (
             <div className="py-12 text-center text-gray-400 animate-pulse">読み込み中...</div>
           ) : (
-            ["目標の魅力", "人材の魅力", "活動の魅力", "条件の魅力"].map((category) => {
+            <>
+            {/* ─── 会社説明会セクション ─── */}
+            {(() => {
+              const briefingVideos = videosList.filter((v) => v.category === BRIEFING_CATEGORY);
+              return (
+                <Card className="border-blue-200 bg-blue-50/30">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base text-blue-700">
+                      <VideoIcon className="h-4 w-4" />
+                      {BRIEFING_CATEGORY}
+                      <span className="text-xs font-normal text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full ml-1">学生ポータル最上部に表示</span>
+                    </CardTitle>
+                    <CardDescription>{briefingVideos.length}本の動画</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16">サムネイル</TableHead>
+                          <TableHead>タイトル</TableHead>
+                          {settings.enabled && <TableHead>公開ステップ</TableHead>}
+                          <TableHead>ステータス</TableHead>
+                          <TableHead className="text-right">操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {briefingVideos.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={settings.enabled ? 5 : 4} className="text-center py-4 text-gray-400">
+                              会社説明会動画はありません
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          briefingVideos.map((video) => {
+                            const youtubeId = video.video_url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1];
+                            const thumbnailSrc = video.thumbnail_url || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg` : null);
+                            return (
+                              <TableRow key={video.id}>
+                                <TableCell>
+                                  {thumbnailSrc ? (
+                                    <img src={thumbnailSrc} alt={video.title} className="w-14 h-9 object-cover rounded border" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                  ) : (
+                                    <div className="w-14 h-9 rounded border bg-gray-100 flex items-center justify-center">
+                                      <ImageIcon className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="font-medium">{video.title}</TableCell>
+                                {settings.enabled && <TableCell>{renderStepCell(video.available_phases as string[])}</TableCell>}
+                                <TableCell>
+                                  <button onClick={() => togglePublish("videos", video.id, video.is_published ?? true, fetchVideos)}>
+                                    {publishBadge(video.is_published ?? true)}
+                                  </button>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <AddVideoDialog video={video} onSuccess={fetchVideos}>
+                                      <Button variant="ghost" size="sm" className="gap-1"><Pencil className="h-3 w-3" />編集</Button>
+                                    </AddVideoDialog>
+                                    {settings.enabled && (
+                                      <Button variant="ghost" size="sm" className="gap-1" onClick={() => openStepDialog("video", video.id, video.title, (video.available_phases as string[]) || [])}>
+                                        <Settings2 className="h-3 w-3" />ステップ
+                                      </Button>
+                                    )}
+                                    <Button variant="ghost" size="sm" className="gap-1 text-red-600 hover:text-red-700" onClick={() => handleDelete("videos", video.id, video.title, fetchVideos)}>
+                                      <Trash2 className="h-3 w-3" />削除
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* ─── 4つの魅力カテゴリ ─── */}
+            {["目標の魅力", "人材の魅力", "活動の魅力", "条件の魅力"].map((category) => {
               const catVideos = videosList.filter((v) => v.category === category);
               return (
                 <Card key={category}>
@@ -362,10 +443,7 @@ export function ContentManagement() {
                       <TableBody>
                         {catVideos.length === 0 ? (
                           <TableRow>
-                            <TableCell
-                              colSpan={settings.enabled ? 6 : 5}
-                              className="text-center py-4 text-gray-400"
-                            >
+                            <TableCell colSpan={settings.enabled ? 6 : 5} className="text-center py-4 text-gray-400">
                               このカテゴリに動画はありません
                             </TableCell>
                           </TableRow>
@@ -452,7 +530,8 @@ export function ContentManagement() {
                   </CardContent>
                 </Card>
               );
-            })
+            })}
+            </>
           )}
         </TabsContent>
 
