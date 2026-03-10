@@ -60,7 +60,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
       toast.info("ファイルアップロードはURLの保持のみ行います（Storage機能は別途実装が必要です）");
     }
 
-    const finalSubcategory = isBriefing ? null : subcategory;
+    const finalSubcategory = isBriefing ? "" : subcategory;
 
     if (video) {
       const { error } = await supabase
