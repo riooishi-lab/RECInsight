@@ -11,12 +11,6 @@ import { getStepSettings } from "../hooks/useStepSettings";
 import { toast } from "sonner";
 import { VideoThumbnailScrubber } from "./VideoThumbnailScrubber";
 
-function extractYouTubeId(url: string): string | null {
-  if (!url) return null;
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]{11})/);
-  return match ? match[1] : null;
-}
-
 interface AddVideoDialogProps {
   children: React.ReactNode;
   onSuccess?: () => void;
@@ -29,6 +23,12 @@ const categories = [
   { value: "活動の魅力", subcategories: ["事業内容", "仕事内容"] },
   { value: "条件の魅力", subcategories: ["報酬体系", "仕事環境"] },
 ];
+
+function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]{11})/);
+  return match ? match[1] : null;
+}
 
 export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogProps) {
   const [open, setOpen] = useState(false);
@@ -115,222 +115,224 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
 
   return (
     <>
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{video ? "動画を編集" : "新しい動画を追加"}</DialogTitle>
-          <DialogDescription>
-            {video ? "動画の詳細情報を更新します" : "YouTubeリンク、Googleドライブリンク、またはファイルアップロードで動画を追加できます"}
-          </DialogDescription>
-        </DialogHeader>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{video ? "動画を編集" : "新しい動画を追加"}</DialogTitle>
+            <DialogDescription>
+              {video ? "動画の詳細情報を更新します" : "YouTubeリンク、Googleドライブリンク、またはファイルアップロードで動画を追加できます"}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4 mt-4">
-          {/* 基本情報 */}
-          <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-            <h3 className="font-medium">基本情報</h3>
+          <div className="space-y-4 mt-4">
+            {/* 基本情報 */}
+            <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+              <h3 className="font-medium">基本情報</h3>
 
-            <div className="space-y-2">
-              <Label htmlFor="title">動画タイトル *</Label>
-              <Input
-                id="title"
-                placeholder="例: 企業認知"
-                value={videoTitle}
-                onChange={(e) => setVideoTitle(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="thumbnail-url">サムネイル画像URL（任意）</Label>
-              <div className="flex gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="title">動画タイトル *</Label>
                 <Input
-                  id="thumbnail-url"
-                  placeholder="https://example.com/thumbnail.jpg"
-                  value={thumbnailUrl}
-                  onChange={(e) => setThumbnailUrl(e.target.value)}
-                  className="flex-1"
+                  id="title"
+                  placeholder="例: 企業認知"
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
                 />
-                {youtubeId && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1 flex-shrink-0 border-[#0079B3] text-[#0079B3] hover:bg-[#E1F1F9]"
-                    onClick={() => setScrubberOpen(true)}
+              </div>
+
+              {/* サムネイル設定 */}
+              <div className="space-y-2">
+                <Label htmlFor="thumbnail-url">サムネイル画像URL（任意）</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="thumbnail-url"
+                    placeholder="https://example.com/thumbnail.jpg"
+                    value={thumbnailUrl}
+                    onChange={(e) => setThumbnailUrl(e.target.value)}
+                    className="flex-1"
+                  />
+                  {youtubeId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 flex-shrink-0 border-[#0079B3] text-[#0079B3] hover:bg-[#E1F1F9]"
+                      onClick={() => setScrubberOpen(true)}
+                    >
+                      <Film className="h-4 w-4" />
+                      動画から選ぶ
+                    </Button>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500">
+                  未入力の場合はYouTubeのサムネイルを自動取得します
+                </p>
+                {thumbnailUrl && (
+                  <img
+                    src={thumbnailUrl}
+                    alt="サムネイルプレビュー"
+                    className="mt-2 rounded border h-24 object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category">カテゴリ *</Label>
+                  <Select value={category} onValueChange={(value) => {
+                    setCategory(value);
+                    setSubcategory(""); // カテゴリ変更時にサブカテゴリをリセット
+                  }}>
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="選択してください" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">サブカテゴリ *</Label>
+                  <Select
+                    value={subcategory}
+                    onValueChange={setSubcategory}
+                    disabled={!category}
                   >
-                    <Film className="h-4 w-4" />
-                    動画から選ぶ
-                  </Button>
-                )}
+                    <SelectTrigger id="subcategory">
+                      <SelectValue placeholder="選択してください" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedCategory?.subcategories.map(sub => (
+                        <SelectItem key={sub} value={sub}>
+                          {sub}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <p className="text-sm text-gray-500">
-                未入力の場合はYouTubeのサムネイルを自動取得します
-              </p>
-              {thumbnailUrl && (
-                <img
-                  src={thumbnailUrl}
-                  alt="サムネイルプレビュー"
-                  className="mt-2 rounded border h-24 object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
-              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="category">カテゴリ *</Label>
-                <Select value={category} onValueChange={(value) => {
-                  setCategory(value);
-                  setSubcategory(""); // カテゴリ変更時にサブカテゴリをリセット
-                }}>
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* 動画ソース */}
+            <Tabs defaultValue={video?.video_url?.startsWith('https://drive.google.com') ? "drive" : video?.video_url?.startsWith('upload://') ? "upload" : "youtube"} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="youtube" className="gap-2">
+                  <Youtube className="h-4 w-4" />
+                  YouTube
+                </TabsTrigger>
+                <TabsTrigger value="drive" className="gap-2">
+                  <HardDrive className="h-4 w-4" />
+                  Google Drive
+                </TabsTrigger>
+                <TabsTrigger value="upload" className="gap-2">
+                  <Upload className="h-4 w-4" />
+                  アップロード
+                </TabsTrigger>
+              </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="subcategory">サブカテゴリ *</Label>
-                <Select
-                  value={subcategory}
-                  onValueChange={setSubcategory}
-                  disabled={!category}
+              <TabsContent value="youtube" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="youtube-url">YouTubeリンク *</Label>
+                  <Input
+                    id="youtube-url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                  />
+                  <p className="text-sm text-gray-500">
+                    YouTube動画のURLを入力してください
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => handleSubmit("youtube")}
+                  disabled={!videoTitle || !category || !subcategory || !youtubeUrl || loading}
+                  className="w-full"
                 >
-                  <SelectTrigger id="subcategory">
-                    <SelectValue placeholder="選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectedCategory?.subcategories.map(sub => (
-                      <SelectItem key={sub} value={sub}>
-                        {sub}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {video ? "変更を保存" : "YouTubeリンクで追加"}
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="drive" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="drive-url">Googleドライブリンク *</Label>
+                  <Input
+                    id="drive-url"
+                    placeholder="https://drive.google.com/file/d/..."
+                    value={driveUrl}
+                    onChange={(e) => setDriveUrl(e.target.value)}
+                  />
+                  <p className="text-sm text-gray-500">
+                    Googleドライブの動画リンクを入力してください（共有設定を「リンクを知っている全員」に変更してください）
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => handleSubmit("drive")}
+                  disabled={!videoTitle || !category || !subcategory || !driveUrl || loading}
+                  className="w-full"
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {video ? "変更を保存" : "Googleドライブリンクで追加"}
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="upload" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="file-upload">動画ファイル *</Label>
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-sm text-gray-500">
+                    MP4, MOV, AVIなどの動画ファイルをアップロードできます（最大500MB）
+                  </p>
+                  {uploadFile && (
+                    <div className="text-sm text-green-600 flex items-center gap-2">
+                      <Upload className="h-4 w-4" />
+                      {uploadFile.name} ({(uploadFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  onClick={() => handleSubmit("upload")}
+                  disabled={!videoTitle || !category || !subcategory || (!uploadFile && !video?.video_url?.startsWith('upload://')) || loading}
+                  className="w-full"
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {video ? "変更を保存" : "ファイルをアップロードして追加"}
+                </Button>
+              </TabsContent>
+            </Tabs>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          {/* 動画ソース */}
-          <Tabs defaultValue={video?.video_url?.startsWith('https://drive.google.com') ? "drive" : video?.video_url?.startsWith('upload://') ? "upload" : "youtube"} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="youtube" className="gap-2">
-                <Youtube className="h-4 w-4" />
-                YouTube
-              </TabsTrigger>
-              <TabsTrigger value="drive" className="gap-2">
-                <HardDrive className="h-4 w-4" />
-                Google Drive
-              </TabsTrigger>
-              <TabsTrigger value="upload" className="gap-2">
-                <Upload className="h-4 w-4" />
-                アップロード
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="youtube" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="youtube-url">YouTubeリンク *</Label>
-                <Input
-                  id="youtube-url"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                />
-                <p className="text-sm text-gray-500">
-                  YouTube動画のURLを入力してください
-                </p>
-              </div>
-
-              <Button
-                onClick={() => handleSubmit("youtube")}
-                disabled={!videoTitle || !category || !subcategory || !youtubeUrl || loading}
-                className="w-full"
-              >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {video ? "変更を保存" : "YouTubeリンクで追加"}
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="drive" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="drive-url">Googleドライブリンク *</Label>
-                <Input
-                  id="drive-url"
-                  placeholder="https://drive.google.com/file/d/..."
-                  value={driveUrl}
-                  onChange={(e) => setDriveUrl(e.target.value)}
-                />
-                <p className="text-sm text-gray-500">
-                  Googleドライブの動画リンクを入力してください（共有設定を「リンクを知っている全員」に変更してください）
-                </p>
-              </div>
-
-              <Button
-                onClick={() => handleSubmit("drive")}
-                disabled={!videoTitle || !category || !subcategory || !driveUrl || loading}
-                className="w-full"
-              >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {video ? "変更を保存" : "Googleドライブリンクで追加"}
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="upload" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="file-upload">動画ファイル *</Label>
-                <Input
-                  id="file-upload"
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                  className="cursor-pointer"
-                />
-                <p className="text-sm text-gray-500">
-                  MP4, MOV, AVIなどの動画ファイルをアップロードできます（最大500MB）
-                </p>
-                {uploadFile && (
-                  <div className="text-sm text-green-600 flex items-center gap-2">
-                    <Upload className="h-4 w-4" />
-                    {uploadFile.name} ({(uploadFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </div>
-                )}
-              </div>
-
-              <Button
-                onClick={() => handleSubmit("upload")}
-                disabled={!videoTitle || !category || !subcategory || (!uploadFile && !video?.video_url?.startsWith('upload://')) || loading}
-                className="w-full"
-              >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {video ? "変更を保存" : "ファイルをアップロードして追加"}
-              </Button>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {youtubeId && (
-      <VideoThumbnailScrubber
-        open={scrubberOpen}
-        onClose={() => setScrubberOpen(false)}
-        videoId={youtubeId as string}
-        onSelect={(url) => {
-          setThumbnailUrl(url);
-          toast.success("サムネイルを設定しました");
-        }}
-      />
-    )}
+      {/* 動画スクラバー（YouTube URLが入力済みの場合のみ表示） */}
+      {youtubeId && (
+        <VideoThumbnailScrubber
+          open={scrubberOpen}
+          onClose={() => setScrubberOpen(false)}
+          videoId={youtubeId}
+          onSelect={(url) => {
+            setThumbnailUrl(url);
+            toast.success("サムネイルを設定しました");
+          }}
+        />
+      )}
     </>
   );
 }
