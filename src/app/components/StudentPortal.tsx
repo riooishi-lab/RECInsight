@@ -381,10 +381,23 @@ export function StudentPortal() {
             )
             .subscribe();
 
+        // ─── ポーリング（Realtime 未設定テーブルへのフォールバック、30秒ごと） ───
+        const pollingInterval = setInterval(() => {
+            fetchContent(currentStep);
+        }, 30000);
+
+        // ─── タブ復帰時に即時再取得 ───
+        const handleVisibilityChange = () => {
+            if (!document.hidden) fetchContent(currentStep);
+        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
         return () => {
             supabase.removeChannel(videoChannel);
             supabase.removeChannel(brochureChannel);
             supabase.removeChannel(articleChannel);
+            clearInterval(pollingInterval);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
     }, []);
 
