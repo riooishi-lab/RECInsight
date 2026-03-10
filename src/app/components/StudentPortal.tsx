@@ -11,20 +11,18 @@ import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
-// ─── Window 拡張のみ宣言（YT名前空間はグローバルで定義済みのため省略）
-declare global {
-    interface Window {
-        YT: any;
-        onYouTubeIframeAPIReady: () => void;
-    }
-}
-
 // ─── YouTube ID を抽出する（多様な形式に対応）
 const extractYouTubeId = (url: string): string | null => {
     if (!url) return null;
     const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
     const match = url.match(regex);
     return match ? match[1] : null;
+};
+
+const formatDuration = (sec: number): string => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s > 0 ? `${m}分${s}秒` : `${m}分`;
 };
 
 const getThumbnail = (video: Video) => {
@@ -165,7 +163,7 @@ function VideoPlayer({ video, studentId, onBack }: VideoPlayerProps) {
                 {video.duration_sec && (
                     <div className="flex items-center gap-1 text-sm text-gray-500 mt-2">
                         <Clock className="h-4 w-4" />
-                        {Math.floor(video.duration_sec / 60)}分
+                        {formatDuration(video.duration_sec)}
                     </div>
                 )}
             </div>
@@ -267,6 +265,7 @@ export function StudentPortal() {
     const [brochures, setBrochures] = useState<Brochure[]>([]);
     const [articles, setArticles] = useState<Article[]>([]);
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+    const [seenVideoIds, setSeenVideoIds] = useState<Set<string>>(new Set());
     const [error, setError] = useState<string>("");
     const [loading, setLoading] = useState(true);
 
@@ -341,6 +340,11 @@ export function StudentPortal() {
             }
 
             setStudent(studentData);
+
+            // ─── 視聴済み動画IDをlocalStorageから復元 ───
+            const storageKey = `seen_videos_${token}`;
+            const stored = localStorage.getItem(storageKey);
+            setSeenVideoIds(new Set(stored ? JSON.parse(stored) : []));
 
             const stepSettings = getStepSettings();
 
@@ -430,6 +434,23 @@ export function StudentPortal() {
 
     if (!student) return null;
 
+    // ─── 動画を「視聴済み」としてlocalStorageに保存 ───
+    const markVideoSeen = (videoId: string) => {
+        const token = new URLSearchParams(window.location.search).get("token") ?? "";
+        const storageKey = `seen_videos_${token}`;
+        setSeenVideoIds((prev) => {
+            const next = new Set(prev);
+            next.add(videoId);
+            localStorage.setItem(storageKey, JSON.stringify([...next]));
+            return next;
+        });
+    };
+
+    const handleSelectVideo = (video: Video) => {
+        markVideoSeen(video.id);
+        setSelectedVideo(video);
+    };
+
     const briefingVideos = videos.filter((v) => v.category === BRIEFING_CATEGORY);
     const regularVideos = videos.filter((v) => v.category !== BRIEFING_CATEGORY);
     const totalContent = videos.length + brochures.length + articles.length;
@@ -472,7 +493,7 @@ export function StudentPortal() {
                                         <Card
                                             key={video.id}
                                             className="group hover:shadow-xl transition-all cursor-pointer border-[#0079B3]/20"
-                                            onClick={() => setSelectedVideo(video)}
+                                            onClick={() => handleSelectVideo(video)}
                                         >
                                             <CardContent className="p-0">
                                                 <div className="relative aspect-video bg-gray-100 rounded-t-lg flex items-center justify-center overflow-hidden">
@@ -486,10 +507,15 @@ export function StudentPortal() {
                                                             <Play className="h-8 w-8 text-[#0079B3] ml-1" fill="currentColor" />
                                                         </div>
                                                     </div>
+                                                    {!seenVideoIds.has(video.id) && (
+                                                        <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">
+                                                            New
+                                                        </div>
+                                                    )}
                                                     {video.duration_sec && (
                                                         <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
                                                             <Clock className="h-3 w-3" />
-                                                            {Math.floor(video.duration_sec / 60)}分
+                                                            {formatDuration(video.duration_sec)}
                                                         </div>
                                                     )}
                                                 </div>
@@ -543,7 +569,7 @@ export function StudentPortal() {
                                                 <Card
                                                     key={video.id}
                                                     className="group hover:shadow-lg transition-all cursor-pointer"
-                                                    onClick={() => setSelectedVideo(video)}
+                                                    onClick={() => handleSelectVideo(video)}
                                                 >
                                                     <CardContent className="p-0">
                                                         <div className="relative aspect-video bg-gray-100 rounded-t-lg flex items-center justify-center overflow-hidden">
@@ -557,10 +583,15 @@ export function StudentPortal() {
                                                                     <Play className="h-7 w-7 text-[#0079B3] ml-1" fill="currentColor" />
                                                                 </div>
                                                             </div>
+                                                            {!seenVideoIds.has(video.id) && (
+                                                                <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">
+                                                                    New
+                                                                </div>
+                                                            )}
                                                             {video.duration_sec && (
                                                                 <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
                                                                     <Clock className="h-3 w-3" />
-                                                                    {Math.floor(video.duration_sec / 60)}分
+                                                                    {formatDuration(video.duration_sec)}
                                                                 </div>
                                                             )}
                                                         </div>

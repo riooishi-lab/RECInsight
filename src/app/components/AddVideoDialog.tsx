@@ -43,6 +43,12 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
   const [driveUrl, setDriveUrl] = useState(video?.video_url?.startsWith('https://drive.google.com') ? video.video_url : "");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnail_url || "");
+  const [durationMin, setDurationMin] = useState(
+    video?.duration_sec != null ? String(Math.floor(video.duration_sec / 60)) : ""
+  );
+  const [durationSec, setDurationSec] = useState(
+    video?.duration_sec != null ? String(video.duration_sec % 60) : ""
+  );
   const [loading, setLoading] = useState(false);
 
   const selectedCategory = categories.find(c => c.value === category);
@@ -61,6 +67,8 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
     }
 
     const finalSubcategory = isBriefing ? "" : subcategory;
+    const durationSecValue =
+      (parseInt(durationMin || "0", 10) * 60) + parseInt(durationSec || "0", 10) || null;
 
     if (video) {
       const { error } = await supabase
@@ -71,6 +79,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
           subcategory: finalSubcategory,
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl || null,
+          duration_sec: durationSecValue,
         })
         .eq('id', video.id);
 
@@ -91,7 +100,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
             subcategory: finalSubcategory,
             video_url: videoUrl,
             thumbnail_url: thumbnailUrl || null,
-            duration_sec: 300,
+            duration_sec: durationSecValue,
             is_published: false,
             available_phases: [],
           }
@@ -110,6 +119,8 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
         setDriveUrl("");
         setUploadFile(null);
         setThumbnailUrl("");
+        setDurationMin("");
+        setDurationSec("");
       }
     }
     setLoading(false);
@@ -185,6 +196,32 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                   />
                 )}
+              </div>
+
+              {/* 動画の長さ */}
+              <div className="space-y-2">
+                <Label>動画の長さ（任意）</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={durationMin}
+                    onChange={(e) => setDurationMin(e.target.value)}
+                    className="w-24 text-right"
+                  />
+                  <span className="text-sm text-gray-600">分</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    placeholder="0"
+                    value={durationSec}
+                    onChange={(e) => setDurationSec(e.target.value)}
+                    className="w-24 text-right"
+                  />
+                  <span className="text-sm text-gray-600">秒</span>
+                </div>
               </div>
 
               <div className={isBriefing ? "" : "grid grid-cols-2 gap-4"}>
