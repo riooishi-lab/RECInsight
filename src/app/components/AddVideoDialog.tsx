@@ -5,10 +5,17 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Youtube, HardDrive, Upload, Loader2 } from "lucide-react";
+import { Youtube, HardDrive, Upload, Loader2, Film } from "lucide-react";
 import { supabase, type Video } from "../../lib/supabase";
 import { getStepSettings } from "../hooks/useStepSettings";
 import { toast } from "sonner";
+import { VideoThumbnailScrubber } from "./VideoThumbnailScrubber";
+
+function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]{11})/);
+  return match ? match[1] : null;
+}
 
 interface AddVideoDialogProps {
   children: React.ReactNode;
@@ -25,6 +32,7 @@ const categories = [
 
 export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogProps) {
   const [open, setOpen] = useState(false);
+  const [scrubberOpen, setScrubberOpen] = useState(false);
   const [videoTitle, setVideoTitle] = useState(video?.title || "");
   const [category, setCategory] = useState(video?.category || "");
   const [subcategory, setSubcategory] = useState(video?.subcategory || "");
@@ -35,6 +43,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
   const [loading, setLoading] = useState(false);
 
   const selectedCategory = categories.find(c => c.value === category);
+  const youtubeId = extractYouTubeId(youtubeUrl);
 
   const handleSubmit = async (method: "youtube" | "drive" | "upload") => {
     setLoading(true);
@@ -105,6 +114,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children}
@@ -134,12 +144,27 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
 
             <div className="space-y-2">
               <Label htmlFor="thumbnail-url">サムネイル画像URL（任意）</Label>
-              <Input
-                id="thumbnail-url"
-                placeholder="https://example.com/thumbnail.jpg"
-                value={thumbnailUrl}
-                onChange={(e) => setThumbnailUrl(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="thumbnail-url"
+                  placeholder="https://example.com/thumbnail.jpg"
+                  value={thumbnailUrl}
+                  onChange={(e) => setThumbnailUrl(e.target.value)}
+                  className="flex-1"
+                />
+                {youtubeId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 flex-shrink-0 border-[#0079B3] text-[#0079B3] hover:bg-[#E1F1F9]"
+                    onClick={() => setScrubberOpen(true)}
+                  >
+                    <Film className="h-4 w-4" />
+                    動画から選ぶ
+                  </Button>
+                )}
+              </div>
               <p className="text-sm text-gray-500">
                 未入力の場合はYouTubeのサムネイルを自動取得します
               </p>
@@ -294,5 +319,18 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
         </div>
       </DialogContent>
     </Dialog>
+
+    {youtubeId && (
+      <VideoThumbnailScrubber
+        open={scrubberOpen}
+        onClose={() => setScrubberOpen(false)}
+        videoId={youtubeId as string}
+        onSelect={(url) => {
+          setThumbnailUrl(url);
+          toast.success("サムネイルを設定しました");
+        }}
+      />
+    )}
+    </>
   );
 }
