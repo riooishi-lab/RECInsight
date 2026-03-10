@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Youtube, HardDrive, Upload, Loader2, Film } from "lucide-react";
 import { supabase, type Video } from "../../lib/supabase";
-import { getStepSettings } from "../hooks/useStepSettings";
+
 import { toast } from "sonner";
 import { VideoThumbnailScrubber } from "./VideoThumbnailScrubber";
 
@@ -93,7 +93,6 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
             thumbnail_url: thumbnailUrl || null,
             duration_sec: 300,
             is_published: false,
-            available_phases: getStepSettings().steps.map((s) => s.id)
           }
         ]);
 
