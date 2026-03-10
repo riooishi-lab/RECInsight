@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Slider } from "./ui/slider";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Play, Pause, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 declare global {
   interface Window {
@@ -16,23 +15,17 @@ declare global {
           playerVars?: Record<string, string | number>;
           events?: {
             onReady?: (e: { target: YTPlayer }) => void;
-            onStateChange?: (e: { data: number }) => void;
           };
         }
       ) => YTPlayer;
-      PlayerState: { PLAYING: number; PAUSED: number; ENDED: number };
     };
     onYouTubeIframeAPIReady?: () => void;
   }
 }
 
 interface YTPlayer {
-  seekTo(sec: number, allowSeekAhead: boolean): void;
   getCurrentTime(): number;
   getDuration(): number;
-  playVideo(): void;
-  pauseVideo(): void;
-  getPlayerState(): number;
   destroy(): void;
 }
 
@@ -41,6 +34,14 @@ interface VideoThumbnailScrubberProps {
   onClose: () => void;
   videoId: string;
   onSelect: (thumbnailUrl: string) => void;
+}
+
+// 再生位置（0〜1）から最も近いYouTubeサムネイルURLを返す
+// YouTube自動生成: 1.jpg≈25%, 2.jpg≈50%, 3.jpg≈75%
+function getAutoThumbnailByPosition(videoId: string, position: number): string {
+  if (position < 0.375) return `https://img.youtube.com/vi/${videoId}/1.jpg`;
+  if (position < 0.625) return `https://img.youtube.com/vi/${videoId}/2.jpg`;
+  return `https://img.youtube.com/vi/${videoId}/3.jpg`;
 }
 
 function formatTime(sec: number): string {
@@ -55,38 +56,35 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [playerReady, setPlayerReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [selectedThumbnail, setSelectedThumbnail] = useState(
-    `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-  );
+  // null = プレイヤー位置に連動、string = 手動選択済み
+  const [manualSelection, setManualSelection] = useState<string | null>(null);
   const [customUrl, setCustomUrl] = useState("");
 
-  // YouTubeサムネイル候補（4フレーム）
   const thumbnailOptions = [
-    { label: "デフォルト", url: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` },
-    { label: "フレーム①", url: `https://img.youtube.com/vi/${videoId}/1.jpg` },
-    { label: "フレーム②", url: `https://img.youtube.com/vi/${videoId}/2.jpg` },
-    { label: "フレーム③", url: `https://img.youtube.com/vi/${videoId}/3.jpg` },
+    { label: "フレーム①（前半）", url: `https://img.youtube.com/vi/${videoId}/1.jpg` },
+    { label: "フレーム②（中盤）", url: `https://img.youtube.com/vi/${videoId}/2.jpg` },
+    { label: "フレーム③（後半）", url: `https://img.youtube.com/vi/${videoId}/3.jpg` },
   ];
+
+  // プレイヤー位置 or 手動選択から決まる現在の選択サムネイル
+  const autoSelected =
+    duration > 0
+      ? getAutoThumbnailByPosition(videoId, currentTime / duration)
+      : thumbnailOptions[0].url;
+  const activeThumbnail = customUrl.trim() ? null : (manualSelection ?? autoSelected);
 
   const initPlayer = useCallback(() => {
     if (!playerContainerRef.current || !window.YT?.Player) return;
 
-    // コンテナをリセット
     playerContainerRef.current.innerHTML = "";
     const el = document.createElement("div");
     playerContainerRef.current.appendChild(el);
 
     playerRef.current = new window.YT.Player(el, {
       videoId,
-      playerVars: {
-        controls: 1,
-        modestbranding: 1,
-        rel: 0,
-        fs: 0,
-      },
+      playerVars: { controls: 1, modestbranding: 1, rel: 0, fs: 0 },
       events: {
         onReady: (e) => {
           setDuration(e.target.getDuration());
@@ -94,8 +92,7 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
           pollRef.current = setInterval(() => {
             if (!playerRef.current) return;
             setCurrentTime(playerRef.current.getCurrentTime());
-            setIsPlaying(playerRef.current.getPlayerState() === 1);
-          }, 250);
+          }, 300);
         },
       },
     });
@@ -117,7 +114,6 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
       }
     };
 
-    // ダイアログ表示後に少し遅延してプレイヤー初期化
     const timer = setTimeout(setup, 100);
 
     return () => {
@@ -128,37 +124,13 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
       setPlayerReady(false);
       setCurrentTime(0);
       setDuration(0);
-      setIsPlaying(false);
+      setManualSelection(null);
+      setCustomUrl("");
     };
   }, [open, initPlayer]);
 
-  const handleSeek = (value: number[]) => {
-    const t = value[0];
-    playerRef.current?.seekTo(t, true);
-    playerRef.current?.pauseVideo();
-    setCurrentTime(t);
-  };
-
-  const handleSeekInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const t = Number(e.target.value);
-    if (!isNaN(t) && t >= 0 && t <= duration) {
-      playerRef.current?.seekTo(t, true);
-      playerRef.current?.pauseVideo();
-      setCurrentTime(t);
-    }
-  };
-
-  const togglePlay = () => {
-    if (!playerRef.current) return;
-    if (isPlaying) {
-      playerRef.current.pauseVideo();
-    } else {
-      playerRef.current.playVideo();
-    }
-  };
-
   const handleConfirm = () => {
-    const url = customUrl.trim() || selectedThumbnail;
+    const url = customUrl.trim() || activeThumbnail || autoSelected;
     onSelect(url);
     onClose();
   };
@@ -171,100 +143,69 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* YouTube Player */}
+          {/* YouTube Player（YouTube側のスクラバーで操作） */}
           <div className="aspect-video bg-black rounded-lg overflow-hidden">
             <div ref={playerContainerRef} className="w-full h-full [&>div]:w-full [&>div]:h-full" />
           </div>
 
-          {/* カスタムスクラバー */}
-          {playerReady && duration > 0 ? (
-            <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={togglePlay}
-                  className="w-8 h-8 rounded-full bg-[#0079B3] text-white flex items-center justify-center flex-shrink-0"
-                >
-                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
-                </button>
-                <div className="flex-1">
-                  <Slider
-                    min={0}
-                    max={Math.floor(duration)}
-                    step={1}
-                    value={[Math.floor(currentTime)]}
-                    onValueChange={handleSeek}
-                    className="w-full"
-                  />
-                </div>
-                <span className="text-sm font-mono text-gray-600 w-20 text-right flex-shrink-0">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Label htmlFor="seek-seconds" className="text-xs text-gray-500 flex-shrink-0">
-                  秒数で移動:
-                </Label>
-                <Input
-                  id="seek-seconds"
-                  type="number"
-                  min={0}
-                  max={Math.floor(duration)}
-                  value={Math.floor(currentTime)}
-                  onChange={handleSeekInput}
-                  className="w-24 h-7 text-sm"
-                />
-                <span className="text-xs text-gray-400">秒</span>
-              </div>
-
-              <p className="text-xs text-gray-400">
-                スライダーまたは秒数を入力して、プレイヤーで目的のフレームを確認してください
-              </p>
-            </div>
-          ) : (
-            <div className="py-3 text-center text-sm text-gray-400 animate-pulse">
+          {playerReady && duration > 0 && (
+            <p className="text-xs text-center text-gray-400">
+              現在位置: {formatTime(currentTime)} / {formatTime(duration)}
+              　│　YouTube プレイヤーのシークバーで目的のフレームに移動してください
+            </p>
+          )}
+          {!playerReady && (
+            <div className="py-2 text-center text-sm text-gray-400 animate-pulse">
               プレイヤーを読み込み中...
             </div>
           )}
 
-          {/* YouTubeの自動生成サムネイルから選択 */}
+          {/* サムネイル選択（プレイヤー位置に応じて自動ハイライト） */}
           <div className="space-y-2">
-            <p className="text-sm font-medium">
-              YouTubeの自動生成サムネイルから選ぶ
-            </p>
-            <div className="grid grid-cols-4 gap-2">
-              {thumbnailOptions.map((opt) => (
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">サムネイルを選ぶ</p>
+              {manualSelection && (
                 <button
-                  key={opt.url}
-                  onClick={() => { setSelectedThumbnail(opt.url); setCustomUrl(""); }}
-                  className={`relative rounded-md overflow-hidden border-2 transition-all ${
-                    selectedThumbnail === opt.url && !customUrl.trim()
-                      ? "border-[#0079B3] ring-2 ring-[#0079B3]/20"
-                      : "border-gray-200 hover:border-gray-400"
-                  }`}
+                  className="text-xs text-[#0079B3] underline"
+                  onClick={() => setManualSelection(null)}
                 >
-                  <img
-                    src={opt.url}
-                    alt={opt.label}
-                    className="w-full aspect-video object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.opacity = "0.3";
-                    }}
-                  />
-                  {selectedThumbnail === opt.url && !customUrl.trim() && (
-                    <div className="absolute top-1 right-1">
-                      <CheckCircle2 className="h-4 w-4 text-[#0079B3] bg-white rounded-full" />
-                    </div>
-                  )}
-                  <span className="absolute bottom-0 left-0 right-0 text-xs bg-black/50 text-white text-center py-0.5">
-                    {opt.label}
-                  </span>
+                  プレイヤー位置に戻す
                 </button>
-              ))}
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {thumbnailOptions.map((opt) => {
+                const isActive = activeThumbnail === opt.url;
+                return (
+                  <button
+                    key={opt.url}
+                    onClick={() => { setManualSelection(opt.url); setCustomUrl(""); }}
+                    className={`relative rounded-md overflow-hidden border-2 transition-all ${
+                      isActive
+                        ? "border-[#0079B3] ring-2 ring-[#0079B3]/20"
+                        : "border-gray-200 hover:border-gray-400"
+                    }`}
+                  >
+                    <img
+                      src={opt.url}
+                      alt={opt.label}
+                      className="w-full aspect-video object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
+                    />
+                    {isActive && (
+                      <div className="absolute top-1 right-1">
+                        <CheckCircle2 className="h-5 w-5 text-[#0079B3] bg-white rounded-full" />
+                      </div>
+                    )}
+                    <span className={`absolute bottom-0 left-0 right-0 text-xs text-white text-center py-0.5 ${isActive ? "bg-[#0079B3]/80" : "bg-black/50"}`}>
+                      {opt.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <p className="text-xs text-gray-400">
-              ※ ブラウザのセキュリティ制限により、任意のフレームの自動キャプチャはできません。
-              上記4枚から選ぶか、スクリーンショットを撮って画像URLを入力してください。
+              プレイヤーのシーク位置に最も近いフレームが自動で選択されます。クリックして手動変更も可能です。
             </p>
           </div>
 
@@ -277,7 +218,7 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
               id="custom-thumbnail-url"
               placeholder="https://example.com/thumbnail.jpg"
               value={customUrl}
-              onChange={(e) => setCustomUrl(e.target.value)}
+              onChange={(e) => { setCustomUrl(e.target.value); setManualSelection(null); }}
             />
             {customUrl.trim() && (
               <img
@@ -289,10 +230,10 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
             )}
           </div>
 
-          {/* 設定中のサムネイルプレビュー */}
+          {/* 確定プレビュー */}
           <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
             <img
-              src={customUrl.trim() || selectedThumbnail}
+              src={customUrl.trim() || activeThumbnail || autoSelected}
               alt="設定するサムネイル"
               className="h-14 aspect-video object-cover rounded border"
               onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
@@ -300,7 +241,9 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
             <div>
               <p className="text-xs text-gray-500">設定するサムネイル</p>
               <p className="text-sm font-medium text-[#0079B3]">
-                {customUrl.trim() ? "カスタムURL" : thumbnailOptions.find(o => o.url === selectedThumbnail)?.label}
+                {customUrl.trim()
+                  ? "カスタムURL"
+                  : thumbnailOptions.find((o) => o.url === activeThumbnail)?.label ?? "—"}
               </p>
             </div>
           </div>
