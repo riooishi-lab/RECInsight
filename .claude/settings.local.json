@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const p = require\\(''./node_modules/react/package.json''\\); console.log\\(''react version:'', p.version\\)\")"
+    ]
+  }
+}
