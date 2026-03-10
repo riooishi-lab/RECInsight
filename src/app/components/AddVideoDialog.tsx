@@ -93,6 +93,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
             thumbnail_url: thumbnailUrl || null,
             duration_sec: 300,
             is_published: false,
+            available_phases: [],
           }
         ]);
 
