@@ -92,6 +92,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
             video_url: videoUrl,
             thumbnail_url: thumbnailUrl || null,
             duration_sec: 300,
+            is_published: false,
             available_phases: getStepSettings().steps.map((s) => s.id)
           }
         ]);

@@ -290,30 +290,32 @@ export function StudentPortal() {
             setVideos(videoData || []);
 
             // ─── パンフレット取得（公開中 + ステップフィルタ） ───
-            let brochureQuery = supabase
+            // available_phases は JSONB 型のため、クライアント側でフィルタリング
+            const { data: brochureData } = await supabase
                 .from("brochures")
                 .select("*")
                 .eq("is_published", true);
-
-            if (stepSettings.enabled) {
-                brochureQuery = brochureQuery.contains("available_phases", [step]);
-            }
-
-            const { data: brochureData } = await brochureQuery;
-            setBrochures(brochureData || []);
+            setBrochures(
+                stepSettings.enabled
+                    ? (brochureData || []).filter((b) =>
+                          Array.isArray(b.available_phases) && b.available_phases.includes(step)
+                      )
+                    : (brochureData || [])
+            );
 
             // ─── 記事取得（公開中 + ステップフィルタ） ───
-            let articleQuery = supabase
+            // available_phases は JSONB 型のため、クライアント側でフィルタリング
+            const { data: articleData } = await supabase
                 .from("articles")
                 .select("*")
                 .eq("is_published", true);
-
-            if (stepSettings.enabled) {
-                articleQuery = articleQuery.contains("available_phases", [step]);
-            }
-
-            const { data: articleData } = await articleQuery;
-            setArticles(articleData || []);
+            setArticles(
+                stepSettings.enabled
+                    ? (articleData || []).filter((a) =>
+                          Array.isArray(a.available_phases) && a.available_phases.includes(step)
+                      )
+                    : (articleData || [])
+            );
         };
 
         const init = async () => {
