@@ -370,7 +370,7 @@ export function ContentManagement() {
                           </TableRow>
                         ) : (
                           briefingVideos.map((video) => {
-                            const youtubeId = video.video_url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1];
+                            const youtubeId = video.video_url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?\s]{11})/)?.[1];
                             const thumbnailSrc = video.thumbnail_url || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg` : null);
                             return (
                               <TableRow key={video.id}>
@@ -449,7 +449,7 @@ export function ContentManagement() {
                           </TableRow>
                         ) : (
                           catVideos.map((video) => {
-                            const youtubeId = video.video_url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1];
+                            const youtubeId = video.video_url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?\s]{11})/)?.[1];
                             const thumbnailSrc = video.thumbnail_url || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg` : null);
                             return (
                             <TableRow key={video.id}>
