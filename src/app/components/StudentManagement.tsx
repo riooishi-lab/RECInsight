@@ -15,11 +15,13 @@ import { Upload, Download, Search, Trash2, Copy, Link, Clock, Play, Calendar, Lo
 import { Textarea } from "./ui/textarea";
 import { supabase, supabaseUrl, supabaseAnonKey } from "../../lib/supabase";
 import type { Student, Phase } from "../../lib/supabase";
+import { BRIEFING_CATEGORY } from "./AddVideoDialog";
 import { toast } from "sonner";
 
 interface StudentWithStats extends Student {
   watch_seconds: number;
   view_count: number;
+  briefing_watched: boolean;
 }
 
 interface WatchSessionLog {
@@ -246,10 +248,28 @@ export function StudentManagement() {
       statsMap[row.student_id].view_count += 1;
     });
 
+    // 会社説明会動画の視聴判断
+    const { data: briefingVideos } = await supabase
+      .from("videos")
+      .select("id")
+      .eq("category", BRIEFING_CATEGORY);
+    const briefingVideoIds = (briefingVideos || []).map((v: { id: string }) => v.id);
+
+    const briefingWatchedSet = new Set<string>();
+    if (briefingVideoIds.length > 0) {
+      const { data: briefingEvents } = await supabase
+        .from("watch_events")
+        .select("student_id")
+        .in("video_id", briefingVideoIds)
+        .eq("event_type", "play");
+      (briefingEvents || []).forEach((e: { student_id: string }) => briefingWatchedSet.add(e.student_id));
+    }
+
     const enriched: StudentWithStats[] = (studentData || []).map((s: Student) => ({
       ...s,
       watch_seconds: statsMap[s.id]?.watch_seconds || 0,
       view_count: statsMap[s.id]?.view_count || 0,
+      briefing_watched: briefingWatchedSet.has(s.id),
     }));
 
     setStudents(enriched);
@@ -380,7 +400,7 @@ export function StudentManagement() {
   };
 
   const downloadCSV = () => {
-    const headers = ["名前", "メールアドレス", "大学", "学部", "フェーズ", "総視聴時間(秒)", "視聴回数"];
+    const headers = ["名前", "メールアドレス", "大学", "学部", "フェーズ", "総視聴時間(秒)", "視聴回数", "プレエントリータイミング", "説明会動画視聴判断"];
     const rows = sortedStudents.map((s) => [
       s.name,
       s.email,
@@ -389,6 +409,8 @@ export function StudentManagement() {
       s.phase,
       s.watch_seconds,
       s.view_count,
+      new Date(s.created_at).toLocaleDateString("ja-JP"),
+      s.briefing_watched ? "視聴済み" : "未視聴",
     ]);
     const csv = [headers, ...rows]
       .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
@@ -677,6 +699,8 @@ export function StudentManagement() {
                     <TableHead>
                       <SortOnlyHead label="視聴回数" col="view_count" sortConfig={sortConfig} onSort={toggleSort} />
                     </TableHead>
+                    <TableHead>プレエントリー<br/>タイミング</TableHead>
+                    <TableHead>説明会動画<br/>視聴判断</TableHead>
                     <TableHead>視聴URL</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
@@ -712,6 +736,22 @@ export function StudentManagement() {
                         title="クリックで視聴履歴を表示"
                       >
                         {student.view_count}回
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600 whitespace-nowrap">
+                        {new Date(student.created_at).toLocaleDateString("ja-JP", {
+                          year: "numeric", month: "2-digit", day: "2-digit"
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        {student.briefing_watched ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                            <CheckCircle2 className="h-3 w-3" />視聴済み
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                            <XCircle className="h-3 w-3" />未視聴
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button
