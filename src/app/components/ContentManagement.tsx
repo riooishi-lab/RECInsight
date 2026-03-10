@@ -21,6 +21,7 @@ import {
   Eye,
   EyeOff,
   Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -59,6 +60,75 @@ export function ContentManagement() {
   // ─── ステップ設定ダイアログ（共通） ───
   const [stepDialog, setStepDialog] = useState<StepDialogState | null>(null);
   const [selectedSteps, setSelectedSteps] = useState<string[]>([]);
+
+  // ─── YouTube動画の長さを一括更新 ───
+  const [refreshingDurations, setRefreshingDurations] = useState(false);
+
+  const refreshYouTubeDurations = async () => {
+    const ytVideos = videosList.filter((v) => {
+      const isYT = v.video_url?.includes("youtube.com") || v.video_url?.includes("youtu.be");
+      return isYT && v.duration_sec == null;
+    });
+    if (ytVideos.length === 0) {
+      toast.info("更新が必要なYouTube動画はありません");
+      return;
+    }
+    setRefreshingDurations(true);
+
+    const ensureYTAPI = (): Promise<void> => {
+      if ((window as any).YT?.Player) return Promise.resolve();
+      return new Promise((resolve) => {
+        const prev = (window as any).onYouTubeIframeAPIReady;
+        (window as any).onYouTubeIframeAPIReady = () => { prev?.(); resolve(); };
+        if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+          const tag = document.createElement("script");
+          tag.src = "https://www.youtube.com/iframe_api";
+          document.head.appendChild(tag);
+        }
+      });
+    };
+
+    const fetchDuration = (ytId: string): Promise<number> =>
+      new Promise((resolve) => {
+        const divId = `refresh-dur-${ytId}`;
+        let div = document.getElementById(divId);
+        if (!div) {
+          div = document.createElement("div");
+          div.id = divId;
+          div.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px;";
+          document.body.appendChild(div);
+        }
+        new (window as any).YT.Player(divId, {
+          videoId: ytId,
+          playerVars: { autoplay: 0 },
+          events: {
+            onReady: (e: any) => {
+              const dur = Math.round(e.target.getDuration());
+              e.target.destroy();
+              document.getElementById(divId)?.remove();
+              resolve(dur > 0 ? dur : 0);
+            },
+          },
+        });
+      });
+
+    await ensureYTAPI();
+    let updated = 0;
+    for (const video of ytVideos) {
+      const ytId = video.video_url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?\s]{11})/)?.[1];
+      if (!ytId) continue;
+      try {
+        const dur = await fetchDuration(ytId);
+        if (dur > 0) {
+          await supabase.from("videos").update({ duration_sec: dur }).eq("id", video.id);
+          updated++;
+        }
+      } catch { /* ignore individual failures */ }
+    }
+    setRefreshingDurations(false);
+    toast.success(`${updated}本の動画の長さを更新しました`);
+    fetchVideos();
+  };
 
   // ─── Fetch ───
   const fetchVideos = useCallback(async () => {
@@ -324,7 +394,16 @@ export function ContentManagement() {
 
         {/* ─── 動画タブ ─── */}
         <TabsContent value="videos" className="space-y-4 mt-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={refreshYouTubeDurations}
+              disabled={refreshingDurations}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshingDurations ? "animate-spin" : ""}`} />
+              YouTube動画の長さを一括更新
+            </Button>
             <AddVideoDialog onSuccess={fetchVideos}>
               <Button className="gap-2 bg-[#0079B3] hover:bg-[#0079B3]/90">
                 <Plus className="h-4 w-4" />
