@@ -250,14 +250,14 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl flex flex-col max-h-[90vh]">
+      <DialogContent className="w-[92vw] max-w-5xl flex flex-col h-[92vh]">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>動画からサムネイルを選ぶ</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {/* YouTube Player */}
-          <div className="w-full h-52 bg-black rounded-lg overflow-hidden">
+          <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
             <div ref={playerContainerRef} className="w-full h-full [&>div]:w-full [&>div]:h-full" />
           </div>
 
