@@ -54,6 +54,7 @@ export interface Video {
     thumbnail_url: string | null
     available_phases: Phase[] | null
     is_published: boolean
+    is_pinned: boolean
     created_at: string
 }
 
