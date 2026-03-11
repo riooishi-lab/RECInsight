@@ -250,7 +250,7 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[92vw] max-w-5xl flex flex-col h-[92vh]">
+      <DialogContent className="w-[92vw] sm:w-[92vw] sm:max-w-5xl flex flex-col h-[92vh]">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>動画からサムネイルを選ぶ</DialogTitle>
         </DialogHeader>
