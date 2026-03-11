@@ -67,7 +67,8 @@ export function ContentManagement() {
   const refreshYouTubeDurations = async () => {
     const ytVideos = videosList.filter((v) => {
       const isYT = v.video_url?.includes("youtube.com") || v.video_url?.includes("youtu.be");
-      return isYT && v.duration_sec == null;
+      // duration_sec == null はマイグレーション後、300 は旧ハードコード値
+      return isYT && (v.duration_sec == null || v.duration_sec === 300);
     });
     if (ytVideos.length === 0) {
       toast.info("更新が必要なYouTube動画はありません");
