@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Youtube, HardDrive, Upload, Loader2, Film } from "lucide-react";
@@ -37,6 +38,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
   const [open, setOpen] = useState(false);
   const [scrubberOpen, setScrubberOpen] = useState(false);
   const [videoTitle, setVideoTitle] = useState(video?.title || "");
+  const [description, setDescription] = useState(video?.description || "");
   const [category, setCategory] = useState(video?.category || "");
   const [subcategory, setSubcategory] = useState(video?.subcategory || "");
   const [youtubeUrl, setYoutubeUrl] = useState(video?.video_url?.startsWith('https://www.youtube.com') || video?.video_url?.startsWith('https://youtu.be') ? video.video_url : "");
@@ -126,6 +128,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
         .from('videos')
         .update({
           title: videoTitle,
+          description: description || null,
           category,
           subcategory: finalSubcategory,
           video_url: videoUrl,
@@ -147,6 +150,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
         .insert([
           {
             title: videoTitle,
+            description: description || null,
             category,
             subcategory: finalSubcategory,
             video_url: videoUrl,
@@ -164,6 +168,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
         onSuccess?.();
         setOpen(false);
         setVideoTitle("");
+        setDescription("");
         setCategory("");
         setSubcategory("");
         setYoutubeUrl("");
@@ -209,6 +214,17 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
                   placeholder="例: 企業認知"
                   value={videoTitle}
                   onChange={(e) => setVideoTitle(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">説明文（任意・30文字程度）</Label>
+                <Textarea
+                  id="description"
+                  placeholder="例: 社員が語る入社のきっかけと職場の雰囲気"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
                 />
               </div>
 
