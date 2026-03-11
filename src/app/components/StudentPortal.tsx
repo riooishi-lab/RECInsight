@@ -4,7 +4,7 @@ import { getStepSettings } from "../hooks/useStepSettings";
 import { BRIEFING_CATEGORY } from "./AddVideoDialog";
 import type { Student, Video, Brochure, Article, WatchEventType } from "../../lib/supabase";
 import { v4 as uuidv4 } from "uuid";
-import { Play, Clock, ArrowLeft, AlertCircle, BookOpen, FileText, ExternalLink } from "lucide-react";
+import { Play, ArrowLeft, AlertCircle, BookOpen, FileText, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -19,11 +19,6 @@ const extractYouTubeId = (url: string): string | null => {
     return match ? match[1] : null;
 };
 
-const formatDuration = (sec: number): string => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return s > 0 ? `${m}分${s}秒` : `${m}分`;
-};
 
 const getThumbnail = (video: Video) => {
     if (video.thumbnail_url) return video.thumbnail_url;
@@ -160,12 +155,6 @@ function VideoPlayer({ video, studentId, onBack }: VideoPlayerProps) {
             <div>
                 <h2 className="text-2xl font-bold">{video.title}</h2>
                 {video.description && <p className="text-gray-600 mt-1">{video.description}</p>}
-                {video.duration_sec && (
-                    <div className="flex items-center gap-1 text-sm text-gray-500 mt-2">
-                        <Clock className="h-4 w-4" />
-                        {formatDuration(video.duration_sec)}
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -512,12 +501,6 @@ export function StudentPortal() {
                                                             New
                                                         </div>
                                                     )}
-                                                    {video.duration_sec && (
-                                                        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                                                            <Clock className="h-3 w-3" />
-                                                            {formatDuration(video.duration_sec)}
-                                                        </div>
-                                                    )}
                                                 </div>
                                                 <div className="p-5 space-y-2">
                                                     <h3 className="text-base font-bold line-clamp-2 group-hover:text-[#0079B3] transition-colors">
@@ -586,12 +569,6 @@ export function StudentPortal() {
                                                             {!seenVideoIds.has(video.id) && (
                                                                 <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">
                                                                     New
-                                                                </div>
-                                                            )}
-                                                            {video.duration_sec && (
-                                                                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                                                                    <Clock className="h-3 w-3" />
-                                                                    {formatDuration(video.duration_sec)}
                                                                 </div>
                                                             )}
                                                         </div>
