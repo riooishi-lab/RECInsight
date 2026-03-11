@@ -250,14 +250,14 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl flex flex-col max-h-[90vh]">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>動画からサムネイルを選ぶ</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {/* YouTube Player */}
-          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+          <div className="w-full h-52 bg-black rounded-lg overflow-hidden">
             <div ref={playerContainerRef} className="w-full h-full [&>div]:w-full [&>div]:h-full" />
           </div>
 
@@ -328,7 +328,7 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
           )}
 
           {/* ─── スクリーンショットで正確なフレームを使う ─── */}
-          <div className="space-y-3 p-3 border border-dashed border-amber-300 rounded-lg bg-amber-50">
+          <div className="space-y-2 p-3 border border-dashed border-amber-300 rounded-lg bg-amber-50">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-amber-800">📸 スクリーンショットで正確なフレームを取得</p>
               <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded">最高精度</span>
@@ -484,7 +484,7 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button className="bg-[#0079B3] hover:bg-[#0079B3]/90" onClick={handleConfirm}>
             このサムネイルを設定
