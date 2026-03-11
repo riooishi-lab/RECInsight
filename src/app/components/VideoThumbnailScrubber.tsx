@@ -258,7 +258,7 @@ export function VideoThumbnailScrubber({ open, onClose, videoId, onSelect }: Vid
         <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {/* YouTube Player */}
           <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
-            <div ref={playerContainerRef} className="w-full h-full [&>div]:w-full [&>div]:h-full" />
+            <div ref={playerContainerRef} className="w-full h-full [&>div]:w-full [&>div]:h-full [&_iframe]:w-full [&_iframe]:h-full" />
           </div>
 
           {!playerReady && (
