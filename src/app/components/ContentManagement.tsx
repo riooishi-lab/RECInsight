@@ -22,6 +22,8 @@ import {
   EyeOff,
   Image as ImageIcon,
   RefreshCw,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -191,6 +193,19 @@ export function ContentManagement() {
       supabase.removeChannel(articleChannel);
     };
   }, [fetchVideos, fetchBrochures, fetchArticles]);
+
+  // ─── ピン留め切り替え ───
+  const togglePin = async (id: string, current: boolean) => {
+    const { error } = await supabase
+      .from("videos")
+      .update({ is_pinned: !current })
+      .eq("id", id);
+    if (error) toast.error(`更新エラー: ${error.message}`);
+    else {
+      toast.success(!current ? "ピン留めしました" : "ピン留めを解除しました");
+      fetchVideos();
+    }
+  };
 
   // ─── 公開ステータス切り替え ───
   const togglePublish = async (
@@ -477,6 +492,16 @@ export function ContentManagement() {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className={`gap-1 ${video.is_pinned ? "text-amber-500 hover:text-amber-600" : "text-gray-400 hover:text-amber-500"}`}
+                                      onClick={() => togglePin(video.id, video.is_pinned ?? false)}
+                                      title={video.is_pinned ? "ピン留め解除" : "ピン留め"}
+                                    >
+                                      {video.is_pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                                      {video.is_pinned ? "解除" : "ピン"}
+                                    </Button>
                                     <AddVideoDialog video={video} onSuccess={fetchVideos}>
                                       <Button variant="ghost" size="sm" className="gap-1"><Pencil className="h-3 w-3" />編集</Button>
                                     </AddVideoDialog>
@@ -570,6 +595,16 @@ export function ContentManagement() {
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={`gap-1 ${video.is_pinned ? "text-amber-500 hover:text-amber-600" : "text-gray-400 hover:text-amber-500"}`}
+                                    onClick={() => togglePin(video.id, video.is_pinned ?? false)}
+                                    title={video.is_pinned ? "ピン留め解除" : "ピン留め"}
+                                  >
+                                    {video.is_pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                                    {video.is_pinned ? "解除" : "ピン"}
+                                  </Button>
                                   <AddVideoDialog video={video} onSuccess={fetchVideos}>
                                     <Button variant="ghost" size="sm" className="gap-1">
                                       <Pencil className="h-3 w-3" />

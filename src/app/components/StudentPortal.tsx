@@ -4,7 +4,7 @@ import { getStepSettings } from "../hooks/useStepSettings";
 import { BRIEFING_CATEGORY } from "./AddVideoDialog";
 import type { Student, Video, Brochure, Article, WatchEventType } from "../../lib/supabase";
 import { v4 as uuidv4 } from "uuid";
-import { Play, Clock, ArrowLeft, AlertCircle, BookOpen, FileText, ExternalLink } from "lucide-react";
+import { Play, Clock, ArrowLeft, AlertCircle, BookOpen, FileText, ExternalLink, Pin } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -453,7 +453,9 @@ export function StudentPortal() {
     };
 
     const briefingVideos = videos.filter((v) => v.category === BRIEFING_CATEGORY);
-    const regularVideos = videos.filter((v) => v.category !== BRIEFING_CATEGORY);
+    const regularVideos = videos
+        .filter((v) => v.category !== BRIEFING_CATEGORY)
+        .sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
     const totalContent = videos.length + brochures.length + articles.length;
 
     return (
@@ -584,11 +586,19 @@ export function StudentPortal() {
                                                                     <Play className="h-7 w-7 text-[#0079B3] ml-1" fill="currentColor" />
                                                                 </div>
                                                             </div>
-                                                            {!seenVideoIds.has(video.id) && (
-                                                                <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">
-                                                                    New
-                                                                </div>
-                                                            )}
+                                                            <div className="absolute top-2 left-2 flex gap-1">
+                                                                {video.is_pinned && (
+                                                                    <div className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow flex items-center gap-1">
+                                                                        <Pin className="h-3 w-3" />
+                                                                        おすすめ
+                                                                    </div>
+                                                                )}
+                                                                {!seenVideoIds.has(video.id) && (
+                                                                    <div className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">
+                                                                        New
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                             {video.duration_sec && (
                                                                 <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
                                                                     <Clock className="h-3 w-3" />
