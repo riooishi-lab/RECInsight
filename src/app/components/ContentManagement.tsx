@@ -218,6 +218,11 @@ export function ContentManagement() {
     refetch: () => void
   ) => {
     if (!confirm(`「${label}」を削除しますか？`)) return;
+    // 動画の場合は watch_events（外部キー参照）を先に削除して FK 制約を回避
+    if (table === "videos") {
+      const { error: weErr } = await supabase.from("watch_events").delete().eq("video_id", id);
+      if (weErr) { toast.error(`削除エラー: ${weErr.message}`); return; }
+    }
     const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) toast.error(`削除エラー: ${error.message}`);
     else {
