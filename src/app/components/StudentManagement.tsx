@@ -400,10 +400,11 @@ export function StudentManagement() {
   };
 
   const downloadCSV = () => {
-    const headers = ["名前", "メールアドレス", "大学", "学部", "フェーズ", "総視聴時間(秒)", "視聴回数", "プレエントリータイミング", "説明会動画視聴判断"];
+    const headers = ["名前", "メールアドレス", "電話番号", "大学", "学部", "フェーズ", "総視聴時間(秒)", "視聴回数", "プレエントリータイミング", "説明会動画視聴判断"];
     const rows = sortedStudents.map((s) => [
       s.name,
       s.email,
+      s.phone || "",
       s.university || "",
       s.department || "",
       s.phase,
@@ -660,6 +661,7 @@ export function StudentManagement() {
                       />
                     </TableHead>
                     <TableHead>メールアドレス</TableHead>
+                    <TableHead>電話番号</TableHead>
                     <TableHead>
                       <SortFilterHead
                         label="大学"
@@ -710,6 +712,7 @@ export function StudentManagement() {
                     <TableRow key={student.id}>
                       <TableCell className="font-medium">{student.name}</TableCell>
                       <TableCell className="text-sm text-gray-600">{student.email}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{student.phone || "—"}</TableCell>
                       <TableCell className="text-sm">{student.university || "—"}</TableCell>
                       <TableCell className="text-sm">{student.department || "—"}</TableCell>
                       <TableCell>
