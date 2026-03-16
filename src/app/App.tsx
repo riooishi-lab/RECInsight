@@ -203,11 +203,17 @@ function MasterApp() {
   if (adminUser.role !== "master") {
     return (
       <div className="min-h-screen bg-[#0079B3] flex items-center justify-center">
-        <div className="text-center text-white">
+        <div className="text-center text-white space-y-4">
           <p className="font-semibold">このページはマスター管理者専用です</p>
-          <p className="text-sm mt-2 text-white/70">
-            ログインしているアカウント: {adminUser.email}
+          <p className="text-sm text-white/70">
+            ログイン中: {adminUser.email}
           </p>
+          <button
+            onClick={signOut}
+            className="mt-4 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm transition-colors"
+          >
+            ログアウトして再ログイン
+          </button>
         </div>
       </div>
     );
