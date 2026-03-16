@@ -271,22 +271,9 @@ function CompanyApp() {
     );
   }
 
-  // マスターが誤って通常URLにアクセスした場合
+  // マスターが通常URLにアクセスした場合もログインページを表示（企業ログインページのプレビュー用）
   if (adminUser.role === "master") {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center text-gray-500">
-          <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-          <p className="font-semibold">マスター管理者は専用ページをご利用ください</p>
-          <a
-            href="/master"
-            className="mt-3 inline-block text-sm text-[#0079B3] hover:underline"
-          >
-            マスター管理画面へ →
-          </a>
-        </div>
-      </div>
-    );
+    return <Login />;
   }
 
   return (
