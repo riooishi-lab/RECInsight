@@ -13,7 +13,7 @@ import {
 } from "./ui/dialog"
 import {
     BarChart3, Building2, Plus, LogOut, Users, Eye, Loader2,
-    Settings, Trash2, Mail,
+    Settings, Trash2, Mail, ExternalLink, Copy, Check,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -41,6 +41,15 @@ export function MasterDashboard({ onSelectCompany }: MasterDashboardProps) {
     const [newAdminEmail, setNewAdminEmail] = useState("")
     const [newAdminPassword, setNewAdminPassword] = useState("")
     const [addingAdmin, setAddingAdmin] = useState(false)
+    const [copied, setCopied] = useState(false)
+
+    const companyLoginUrl = window.location.origin + "/"
+
+    const handleCopyUrl = () => {
+        navigator.clipboard.writeText(companyLoginUrl)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+    }
 
     const fetchCompanies = async () => {
         setLoading(true)
@@ -157,10 +166,33 @@ export function MasterDashboard({ onSelectCompany }: MasterDashboardProps) {
                             <p className="text-xs text-gray-500">{adminUser?.email}</p>
                         </div>
                     </div>
-                    <Button variant="outline" onClick={signOut} className="gap-2">
-                        <LogOut className="h-4 w-4" />
-                        ログアウト
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        {/* 企業ログインURLバナー */}
+                        <div className="flex items-center gap-2 bg-gray-50 border rounded-lg px-3 py-2">
+                            <span className="text-xs text-gray-500">企業ログインURL：</span>
+                            <span className="text-xs font-mono text-gray-700">{companyLoginUrl}</span>
+                            <button
+                                onClick={handleCopyUrl}
+                                className="text-gray-400 hover:text-[#0079B3] transition-colors"
+                                title="URLをコピー"
+                            >
+                                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                            </button>
+                            <a
+                                href={companyLoginUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-400 hover:text-[#0079B3] transition-colors"
+                                title="企業ログインページを開く"
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                            </a>
+                        </div>
+                        <Button variant="outline" onClick={signOut} className="gap-2">
+                            <LogOut className="h-4 w-4" />
+                            ログアウト
+                        </Button>
+                    </div>
                 </div>
             </header>
 
