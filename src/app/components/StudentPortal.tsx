@@ -3,14 +3,15 @@ import { supabase } from "../../lib/supabase";
 import { getStepSettings, DEFAULT_SETTINGS } from "../hooks/useStepSettings";
 import type { StepSettings } from "../hooks/useStepSettings";
 import { BRIEFING_CATEGORY } from "./AddVideoDialog";
-import type { Student, Video, Brochure, Article, WatchEventType } from "../../lib/supabase";
+import type { Student, Video, Brochure, Article, WatchEventType, SurveyQuestion } from "../../lib/supabase";
 import { v4 as uuidv4 } from "uuid";
-import { Play, Clock, ArrowLeft, AlertCircle, BookOpen, FileText, ExternalLink, Pin } from "lucide-react";
-import { Card, CardContent } from "./ui/card";
+import { Play, Clock, ArrowLeft, AlertCircle, BookOpen, FileText, ExternalLink, Pin, Star, CheckCircle2, ClipboardList } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { toast } from "sonner";
 
 const formatDuration = (sec: number): string => {
     const m = Math.floor(sec / 60);
@@ -260,6 +261,144 @@ function ArticleCard({ article }: { article: Article }) {
             </CardContent>
         </Card>
     );
+}
+
+// ─── サーベイセクション（ジャンル非表示）───
+function SurveySection({ studentId, companyId }: { studentId: string; companyId: string }) {
+    const [questions, setQuestions] = useState<SurveyQuestion[]>([])
+    const [scores, setScores] = useState<Record<string, number>>({})
+    const [submitted, setSubmitted] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const [submitting, setSubmitting] = useState(false)
+
+    useEffect(() => {
+        const load = async () => {
+            const [{ data: qs }, { data: existing }] = await Promise.all([
+                supabase
+                    .from("survey_questions")
+                    .select("id, question_text, order_no, is_published")
+                    .eq("company_id", companyId)
+                    .eq("is_published", true)
+                    .order("order_no"),
+                supabase
+                    .from("survey_responses")
+                    .select("question_id, score")
+                    .eq("student_id", studentId)
+                    .eq("company_id", companyId),
+            ])
+            setQuestions((qs as SurveyQuestion[]) || [])
+            if (existing && existing.length > 0) {
+                const map: Record<string, number> = {}
+                existing.forEach((r: any) => { map[r.question_id] = r.score })
+                setScores(map)
+                setSubmitted(true)
+            }
+            setLoading(false)
+        }
+        load()
+    }, [studentId, companyId])
+
+    const handleSubmit = async () => {
+        const unanswered = questions.filter(q => !scores[q.id])
+        if (unanswered.length > 0) {
+            toast.error("すべての設問に回答してください")
+            return
+        }
+        setSubmitting(true)
+        const rows = questions.map(q => ({
+            company_id: companyId,
+            question_id: q.id,
+            student_id: studentId,
+            score: scores[q.id],
+        }))
+        const { error } = await supabase.from("survey_responses").upsert(rows, { onConflict: "question_id,student_id" })
+        if (error) {
+            toast.error("送信に失敗しました。もう一度お試しください。")
+        } else {
+            setSubmitted(true)
+            toast.success("アンケートを送信しました。ありがとうございます！")
+        }
+        setSubmitting(false)
+    }
+
+    if (loading || questions.length === 0) return null
+
+    return (
+        <Card className="border-[#0079B3]/20 shadow-sm">
+            <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg text-[#0079B3]">
+                    <ClipboardList className="h-5 w-5" />
+                    アンケートにご協力ください
+                </CardTitle>
+                <p className="text-sm text-gray-500">各設問について、1〜5の5段階で評価してください</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                {submitted ? (
+                    <div className="py-8 text-center space-y-3">
+                        <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+                        <p className="font-semibold text-gray-800">ご回答ありがとうございました</p>
+                        <p className="text-sm text-gray-500">回答は正常に送信されました</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="space-y-5">
+                            {questions.map((q, idx) => (
+                                <div key={q.id} className="space-y-2">
+                                    <p className="text-sm font-medium text-gray-800">
+                                        <span className="text-[#0079B3] font-semibold mr-2">Q{idx + 1}.</span>
+                                        {q.question_text}
+                                    </p>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-xs text-gray-400 mr-1">低</span>
+                                        {[1, 2, 3, 4, 5].map(score => (
+                                            <button
+                                                key={score}
+                                                onClick={() => setScores(prev => ({ ...prev, [q.id]: score }))}
+                                                className={`w-10 h-10 rounded-lg text-sm font-bold border-2 transition-all ${
+                                                    scores[q.id] === score
+                                                        ? "border-[#0079B3] bg-[#0079B3] text-white scale-110"
+                                                        : scores[q.id] && scores[q.id] > score
+                                                        ? "border-[#5CA7D1] bg-[#E1F1F9] text-[#0079B3]"
+                                                        : "border-gray-200 bg-white text-gray-600 hover:border-[#5CA7D1]"
+                                                }`}
+                                            >
+                                                {score}
+                                            </button>
+                                        ))}
+                                        <span className="text-xs text-gray-400 ml-1">高</span>
+                                        {scores[q.id] && (
+                                            <div className="ml-2 flex items-center gap-0.5">
+                                                {[1, 2, 3, 4, 5].map(s => (
+                                                    <Star
+                                                        key={s}
+                                                        className={`h-3 w-3 ${s <= scores[q.id] ? "text-amber-400 fill-amber-400" : "text-gray-200"}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={submitting || questions.some(q => !scores[q.id])}
+                            className="w-full bg-[#0079B3] hover:bg-[#005a86] gap-2"
+                        >
+                            {submitting
+                                ? <span className="animate-spin mr-2">⏳</span>
+                                : <CheckCircle2 className="h-4 w-4" />
+                            }
+                            アンケートを送信する
+                        </Button>
+                        <p className="text-xs text-gray-400 text-center">
+                            {questions.filter(q => scores[q.id]).length} / {questions.length} 問回答済み
+                        </p>
+                    </>
+                )}
+            </CardContent>
+        </Card>
+    )
 }
 
 // ─── メイン StudentPortal コンポーネント ───
@@ -685,6 +824,11 @@ export function StudentPortal() {
                                     )}
                                 </TabsContent>
                             </Tabs>
+                        )}
+
+                        {/* サーベイセクション */}
+                        {companyId && (
+                            <SurveySection studentId={student.id} companyId={companyId} />
                         )}
                     </div>
                 )}

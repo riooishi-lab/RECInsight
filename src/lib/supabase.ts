@@ -117,3 +117,25 @@ export interface PhaseRecord {
     order_no: number | null
     color: string
 }
+
+export type SurveyGenre = '目標の魅力' | '人材の魅力' | '活動の魅力' | '条件の魅力'
+export const SURVEY_GENRES: SurveyGenre[] = ['目標の魅力', '人材の魅力', '活動の魅力', '条件の魅力']
+
+export interface SurveyQuestion {
+    id: string
+    company_id: string
+    question_text: string
+    genre: SurveyGenre
+    order_no: number
+    is_published: boolean
+    created_at: string
+}
+
+export interface SurveyResponse {
+    id: string
+    company_id: string
+    question_id: string
+    student_id: string
+    score: number
+    created_at: string
+}

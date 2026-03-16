@@ -6,17 +6,18 @@ import { ContentManagement } from "./components/ContentManagement";
 import { StudentManagement } from "./components/StudentManagement";
 import { StudentPortal } from "./components/StudentPortal";
 import { StepManagement } from "./components/StepManagement";
+import { SurveyManagement } from "./components/SurveyManagement";
 import { Manual } from "./components/Manual";
 import { Login } from "./components/Login";
 import { MasterLogin } from "./components/MasterLogin";
 import { MasterDashboard } from "./components/MasterDashboard";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { BarChart3, Home, TrendingUp, FolderOpen, Users, GraduationCap, Book, Layers, LogOut, ChevronLeft, Building2 } from "lucide-react";
+import { BarChart3, Home, TrendingUp, FolderOpen, Users, GraduationCap, Book, Layers, LogOut, ChevronLeft, Building2, ClipboardList } from "lucide-react";
 import { Toaster } from "sonner";
 
-type View = "overview" | "phases" | "contents" | "content" | "steps" | "students" | "manual";
+type View = "overview" | "phases" | "contents" | "content" | "steps" | "students" | "survey" | "manual";
 
-const VALID_VIEWS: View[] = ["overview", "phases", "contents", "content", "steps", "students", "manual"];
+const VALID_VIEWS: View[] = ["overview", "phases", "contents", "content", "steps", "students", "survey", "manual"];
 
 function getInitialView(): View {
   const hash = window.location.hash.replace("#", "") as View;
@@ -123,6 +124,17 @@ function CompanyDashboard({
           </button>
 
           <button
+            onClick={() => navigate("survey")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === "survey"
+              ? "bg-[#5CA7D1] text-white font-medium"
+              : "text-gray-700 hover:bg-gray-50"
+              }`}
+          >
+            <ClipboardList className="h-5 w-5" />
+            <span>サーベイ管理</span>
+          </button>
+
+          <button
             onClick={() => navigate("students")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === "students"
               ? "bg-[#5CA7D1] text-white font-medium"
@@ -166,6 +178,7 @@ function CompanyDashboard({
           {currentView === "contents" && <VideoAnalytics companyId={companyId} />}
           {currentView === "content" && <ContentManagement companyId={companyId} />}
           {currentView === "steps" && <StepManagement companyId={companyId} />}
+          {currentView === "survey" && <SurveyManagement companyId={companyId} />}
           {currentView === "students" && <StudentManagement companyId={companyId} />}
           {currentView === "manual" && <Manual />}
         </div>
