@@ -8,6 +8,7 @@ interface AuthContextType {
     adminUser: AdminUser | null
     loading: boolean
     signIn: (email: string, password: string) => Promise<{ error: string | null }>
+    signUp: (email: string, password: string) => Promise<{ error: string | null }>
     signOut: () => Promise<void>
 }
 
@@ -57,12 +58,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: null }
     }
 
+    const signUp = async (email: string, password: string) => {
+        // admin_users テーブルに登録されているメールか確認
+        const { data: adminRecord } = await supabase
+            .from('admin_users')
+            .select('id')
+            .eq('email', email)
+            .single()
+        if (!adminRecord) {
+            return { error: 'このメールアドレスは管理者として登録されていません' }
+        }
+        const { error } = await supabase.auth.signUp({ email, password })
+        if (error) return { error: error.message }
+        // 登録後すぐにサインイン
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (signInError) return { error: '登録しました。メール確認後にログインしてください。' }
+        return { error: null }
+    }
+
     const signOut = async () => {
         await supabase.auth.signOut()
     }
 
     return (
-        <AuthContext.Provider value={{ session, adminUser, loading, signIn, signOut }}>
+        <AuthContext.Provider value={{ session, adminUser, loading, signIn, signUp, signOut }}>
             {children}
         </AuthContext.Provider>
     )
