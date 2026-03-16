@@ -182,7 +182,7 @@ function CompanyDashboard({
 
 // ─── マスターフロー（/master パス）───
 function MasterApp() {
-  const { adminUser, loading } = useAuth();
+  const { adminUser, loading, signOut } = useAuth();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
 
