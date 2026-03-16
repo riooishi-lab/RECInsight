@@ -8,6 +8,7 @@ import { StudentPortal } from "./components/StudentPortal";
 import { StepManagement } from "./components/StepManagement";
 import { Manual } from "./components/Manual";
 import { Login } from "./components/Login";
+import { MasterLogin } from "./components/MasterLogin";
 import { MasterDashboard } from "./components/MasterDashboard";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { BarChart3, Home, TrendingUp, FolderOpen, Users, GraduationCap, Book, Layers, LogOut, ChevronLeft, Building2 } from "lucide-react";
@@ -179,11 +180,67 @@ function CompanyDashboard({
   );
 }
 
-// 認証済みアプリ本体
-function AuthenticatedApp() {
+// ─── マスターフロー（/master パス）───
+function MasterApp() {
   const { adminUser, loading } = useAuth();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0079B3] flex items-center justify-center">
+        <div className="text-white/70">読み込み中...</div>
+      </div>
+    );
+  }
+
+  // 未ログイン → マスター専用ログイン画面
+  if (!adminUser) {
+    return <MasterLogin />;
+  }
+
+  // マスター以外のアカウントでアクセスした場合
+  if (adminUser.role !== "master") {
+    return (
+      <div className="min-h-screen bg-[#0079B3] flex items-center justify-center">
+        <div className="text-center text-white">
+          <p className="font-semibold">このページはマスター管理者専用です</p>
+          <p className="text-sm mt-2 text-white/70">
+            ログインしているアカウント: {adminUser.email}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 企業ダッシュボードを選択中
+  if (selectedCompanyId) {
+    return (
+      <CompanyDashboard
+        companyId={selectedCompanyId}
+        companyName={selectedCompanyName}
+        onBack={() => {
+          setSelectedCompanyId(null);
+          setSelectedCompanyName("");
+        }}
+      />
+    );
+  }
+
+  // マスターダッシュボード（企業一覧）
+  return (
+    <MasterDashboard
+      onSelectCompany={(id, name) => {
+        setSelectedCompanyId(id);
+        setSelectedCompanyName(name);
+      }}
+    />
+  );
+}
+
+// ─── 企業管理者フロー（通常パス）───
+function CompanyApp() {
+  const { adminUser, loading } = useAuth();
 
   if (loading) {
     return (
@@ -193,41 +250,36 @@ function AuthenticatedApp() {
     );
   }
 
+  // 未ログイン → 企業ログイン画面
   if (!adminUser) {
     return <Login />;
   }
 
-  // マスター管理者：企業を選択したらダッシュボードを表示
-  if (adminUser.role === "master") {
-    if (selectedCompanyId) {
-      return (
-        <CompanyDashboard
-          companyId={selectedCompanyId}
-          companyName={selectedCompanyName}
-          onBack={() => {
-            setSelectedCompanyId(null);
-            setSelectedCompanyName("");
-          }}
-        />
-      );
-    }
-    return (
-      <MasterDashboard
-        onSelectCompany={(id, name) => {
-          setSelectedCompanyId(id);
-          setSelectedCompanyName(name);
-        }}
-      />
-    );
-  }
-
-  // 企業管理者：自社のダッシュボードを直接表示
+  // 企業管理者 → 自社ダッシュボード
   if (adminUser.role === "company" && adminUser.company_id) {
     return (
       <CompanyDashboard
         companyId={adminUser.company_id}
         companyName={adminUser.company?.name || ""}
       />
+    );
+  }
+
+  // マスターが誤って通常URLにアクセスした場合
+  if (adminUser.role === "master") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <p className="font-semibold">マスター管理者は専用ページをご利用ください</p>
+          <a
+            href="/master"
+            className="mt-3 inline-block text-sm text-[#0079B3] hover:underline"
+          >
+            マスター管理画面へ →
+          </a>
+        </div>
+      </div>
     );
   }
 
@@ -242,8 +294,10 @@ function AuthenticatedApp() {
 }
 
 export default function App() {
-  // /watch ルートの場合は学生ポータルを表示（認証不要）
-  if (window.location.pathname === "/watch") {
+  const pathname = window.location.pathname;
+
+  // /watch → 学生ポータル（認証不要）
+  if (pathname === "/watch") {
     try {
       return (
         <>
@@ -256,11 +310,24 @@ export default function App() {
     }
   }
 
+  // /master → マスター管理者フロー
+  if (pathname === "/master" || pathname.startsWith("/master/")) {
+    return (
+      <>
+        <Toaster richColors position="top-right" />
+        <AuthProvider>
+          <MasterApp />
+        </AuthProvider>
+      </>
+    );
+  }
+
+  // それ以外 → 企業管理者フロー
   return (
     <>
       <Toaster richColors position="top-right" />
       <AuthProvider>
-        <AuthenticatedApp />
+        <CompanyApp />
       </AuthProvider>
     </>
   );
