@@ -16,6 +16,7 @@ interface AddVideoDialogProps {
   children: React.ReactNode;
   onSuccess?: () => void;
   video?: Video;
+  companyId?: string;
 }
 
 export const BRIEFING_CATEGORY = "会社説明会";
@@ -34,7 +35,7 @@ function extractYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogProps) {
+export function AddVideoDialog({ children, onSuccess, video, companyId }: AddVideoDialogProps) {
   const [open, setOpen] = useState(false);
   const [scrubberOpen, setScrubberOpen] = useState(false);
   const [videoTitle, setVideoTitle] = useState(video?.title || "");
@@ -158,6 +159,7 @@ export function AddVideoDialog({ children, onSuccess, video }: AddVideoDialogPro
             duration_sec: durationSecValue,
             is_published: false,
             available_phases: [],
+            company_id: companyId || null,
           }
         ]);
 

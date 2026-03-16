@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import type { Phase } from '../../lib/supabase';
 
 export const ALL_PHASES: Phase[] = ['認知', '興味', '応募', '選定', '内定', '承諾'];
 
 export interface StepConfig {
-  id: string;       // "STEP1", "STEP2", etc.
-  name: string;     // Display name
-  subtitle: string; // e.g., "認知・興味期"
-  phases: Phase[];  // Phases belonging to this step
+  id: string;
+  name: string;
+  subtitle: string;
+  phases: Phase[];
   purpose: string;
   color: string;
   bgColor: string;
@@ -53,45 +54,65 @@ export function generateStepConfigs(count: number): StepConfig[] {
   return result;
 }
 
-const DEFAULT_SETTINGS: StepSettings = {
+export const DEFAULT_SETTINGS: StepSettings = {
   enabled: true,
   steps: generateStepConfigs(3),
 };
 
-const STORAGE_KEY = 'recruitment-step-settings';
+const BASE_STORAGE_KEY = 'recruitment-step-settings';
 
-export function getStepSettings(): StepSettings {
+function getStorageKey(companyId: string): string {
+  return `${BASE_STORAGE_KEY}-${companyId}`;
+}
+
+export function getStepSettings(companyId?: string): StepSettings {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const key = companyId ? getStorageKey(companyId) : BASE_STORAGE_KEY;
+    const stored = localStorage.getItem(key);
     if (stored) return JSON.parse(stored) as StepSettings;
   } catch {}
   return DEFAULT_SETTINGS;
 }
 
-export function saveStepSettings(settings: StepSettings): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+export function saveStepSettings(settings: StepSettings, companyId?: string): void {
+  const key = companyId ? getStorageKey(companyId) : BASE_STORAGE_KEY;
+  localStorage.setItem(key, JSON.stringify(settings));
   window.dispatchEvent(new CustomEvent('step-settings-changed'));
+
+  // DBにも保存（StudentPortal参照用）
+  if (companyId) {
+    supabase.from('company_step_settings').upsert({
+      company_id: companyId,
+      settings: settings,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'company_id' }).then(({ error }) => {
+      if (error) console.error('Step settings DB sync error:', error);
+    });
+  }
 }
 
-export function useStepSettings() {
-  const [settings, setSettings] = useState<StepSettings>(() => getStepSettings());
+export function useStepSettings(companyId?: string) {
+  const [settings, setSettings] = useState<StepSettings>(() => getStepSettings(companyId));
 
   useEffect(() => {
-    const handler = () => setSettings(getStepSettings());
+    setSettings(getStepSettings(companyId));
+  }, [companyId]);
+
+  useEffect(() => {
+    const handler = () => setSettings(getStepSettings(companyId));
     window.addEventListener('step-settings-changed', handler);
     window.addEventListener('storage', handler);
     return () => {
       window.removeEventListener('step-settings-changed', handler);
       window.removeEventListener('storage', handler);
     };
-  }, []);
+  }, [companyId]);
 
   const updateSettings = (newSettings: StepSettings) => {
     setSettings(newSettings);
-    saveStepSettings(newSettings);
+    saveStepSettings(newSettings, companyId);
   };
 
-  /** フェーズ名 → ステップID へ変換 */
   const phaseToStepId = (phase: string): string => {
     for (const step of settings.steps) {
       if ((step.phases as string[]).includes(phase)) return step.id;

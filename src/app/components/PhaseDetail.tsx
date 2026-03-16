@@ -9,7 +9,7 @@ import type { Phase } from "../../lib/supabase";
 
 type PhaseTab = "all" | string;
 
-export function PhaseDetail() {
+export function PhaseDetail({ companyId }: { companyId: string }) {
   const [loading, setLoading] = useState(true);
   const [selectedPhase, setSelectedPhase] = useState<PhaseTab>("all");
   const [data, setData] = useState({
@@ -24,9 +24,9 @@ export function PhaseDetail() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      const { data: students } = await supabase.from('students').select('*');
-      const { data: videos } = await supabase.from('videos').select('*');
-      const { data: events } = await supabase.from('watch_events').select('*');
+      const { data: students } = await supabase.from('students').select('*').eq('company_id', companyId);
+      const { data: videos } = await supabase.from('videos').select('*').eq('company_id', companyId);
+      const { data: events } = await supabase.from('watch_events').select('*').eq('company_id', companyId);
 
       if (!students || !videos || !events) {
         setLoading(false);
@@ -47,7 +47,7 @@ export function PhaseDetail() {
       setLoading(false);
     }
     fetchData();
-  }, []);
+  }, [companyId]);
 
   const getStudentStats = (studentId: string) => {
     const sEvents = data.events.filter(e => e.student_id === studentId);

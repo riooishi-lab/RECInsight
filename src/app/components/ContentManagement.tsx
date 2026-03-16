@@ -44,8 +44,8 @@ interface StepDialogState {
   currentPhases: string[];
 }
 
-export function ContentManagement() {
-  const { settings, stepIds } = useStepSettings();
+export function ContentManagement({ companyId }: { companyId: string }) {
+  const { settings, stepIds } = useStepSettings(companyId);
 
   // ─── Videos ───
   const [videosList, setVideosList] = useState<Video[]>([]);
@@ -139,33 +139,36 @@ export function ContentManagement() {
     const { data, error } = await supabase
       .from("videos")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .eq("company_id", companyId);
     if (error) toast.error(`動画取得エラー: ${error.message}`);
     else setVideosList(data || []);
     setVideosLoading(false);
-  }, []);
+  }, [companyId]);
 
   const fetchBrochures = useCallback(async () => {
     setBrochuresLoading(true);
     const { data, error } = await supabase
       .from("brochures")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .eq("company_id", companyId);
     if (error) toast.error(`パンフレット取得エラー: ${error.message}`);
     else setBrochuresList(data || []);
     setBrochuresLoading(false);
-  }, []);
+  }, [companyId]);
 
   const fetchArticles = useCallback(async () => {
     setArticlesLoading(true);
     const { data, error } = await supabase
       .from("articles")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .eq("company_id", companyId);
     if (error) toast.error(`記事取得エラー: ${error.message}`);
     else setArticlesList(data || []);
     setArticlesLoading(false);
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     fetchVideos();
@@ -425,7 +428,7 @@ export function ContentManagement() {
               <RefreshCw className={`h-4 w-4 ${refreshingDurations ? "animate-spin" : ""}`} />
               YouTube動画の長さを一括更新
             </Button>
-            <AddVideoDialog onSuccess={fetchVideos}>
+            <AddVideoDialog onSuccess={fetchVideos} companyId={companyId}>
               <Button className="gap-2 bg-[#0079B3] hover:bg-[#0079B3]/90">
                 <Plus className="h-4 w-4" />
                 新しい動画を追加
@@ -658,7 +661,7 @@ export function ContentManagement() {
         {/* ─── パンフレットタブ ─── */}
         <TabsContent value="brochures" className="space-y-4 mt-4">
           <div className="flex justify-end">
-            <AddBrochureDialog onSuccess={fetchBrochures}>
+            <AddBrochureDialog onSuccess={fetchBrochures} companyId={companyId}>
               <Button className="gap-2 bg-[#0079B3] hover:bg-[#0079B3]/90">
                 <Plus className="h-4 w-4" />
                 新しいパンフレットを追加
@@ -775,7 +778,7 @@ export function ContentManagement() {
         {/* ─── 記事タブ ─── */}
         <TabsContent value="articles" className="space-y-4 mt-4">
           <div className="flex justify-end">
-            <AddArticleDialog onSuccess={fetchArticles}>
+            <AddArticleDialog onSuccess={fetchArticles} companyId={companyId}>
               <Button className="gap-2 bg-[#0079B3] hover:bg-[#0079B3]/90">
                 <Plus className="h-4 w-4" />
                 新しい記事を追加
