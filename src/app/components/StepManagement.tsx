@@ -49,8 +49,8 @@ const getCategoryColor = (category: string) => {
   }
 };
 
-export function StepManagement() {
-  const { settings, updateSettings } = useStepSettings();
+export function StepManagement({ companyId }: { companyId: string }) {
+  const { settings, updateSettings } = useStepSettings(companyId);
 
   // ── ビデオ一覧 & 割り当て
   const [videosList, setVideosList] = useState<Video[]>([]);
@@ -70,7 +70,7 @@ export function StepManagement() {
   // ── 動画取得
   const fetchVideos = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("videos").select("*");
+    const { data, error } = await supabase.from("videos").select("*").eq("company_id", companyId);
     if (error) {
       toast.error(`動画取得エラー: ${error.message}`);
     } else {
@@ -86,7 +86,7 @@ export function StepManagement() {
       setVideoStepAssignments(assignments);
     }
     setLoading(false);
-  }, [settings.steps]);
+  }, [settings.steps, companyId]);
 
   useEffect(() => {
     fetchVideos();
@@ -101,7 +101,7 @@ export function StepManagement() {
 
       // 動画の割り当てを新しいステップ定義に従いマイグレーション
       if (draftEnabled) {
-        const { data: videos } = await supabase.from("videos").select("id, available_phases");
+        const { data: videos } = await supabase.from("videos").select("id, available_phases").eq("company_id", companyId);
         if (videos && oldSteps.length > 0) {
           const oldStepIds = oldSteps.map((s) => s.id);
           const newStepIds = newSteps.map((s) => s.id);

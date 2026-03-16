@@ -12,6 +12,7 @@ import { toast } from "sonner";
 interface AddStudentCSVDialogProps {
   children: React.ReactNode;
   onSuccess?: () => void;
+  companyId?: string;
 }
 
 interface UploadedStudent {
@@ -22,7 +23,7 @@ interface UploadedStudent {
 
 const VALID_PHASES: Phase[] = ["認知", "興味", "応募", "選定", "内定", "承諾"];
 
-export function AddStudentCSVDialog({ children, onSuccess }: AddStudentCSVDialogProps) {
+export function AddStudentCSVDialog({ children, onSuccess, companyId }: AddStudentCSVDialogProps) {
   const [open, setOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [error, setError] = useState<string>("");
@@ -145,6 +146,7 @@ export function AddStudentCSVDialog({ children, onSuccess }: AddStudentCSVDialog
             university: row["大学"] || row["university"] || null,
             department: row["学部"] || row["department"] || null,
             phase,
+            company_id: companyId || null,
           };
         });
 

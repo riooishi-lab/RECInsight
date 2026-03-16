@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
-import { getStepSettings } from "../hooks/useStepSettings";
+import { getStepSettings, DEFAULT_SETTINGS } from "../hooks/useStepSettings";
+import type { StepSettings } from "../hooks/useStepSettings";
 import { BRIEFING_CATEGORY } from "./AddVideoDialog";
 import type { Student, Video, Brochure, Article, WatchEventType } from "../../lib/supabase";
 import { v4 as uuidv4 } from "uuid";
@@ -34,7 +35,7 @@ const getThumbnail = (video: Video) => {
 };
 
 // ─── 視聴イベント記録フック
-function useWatchTracker(studentId: string | null, videoId: string | null) {
+function useWatchTracker(studentId: string | null, videoId: string | null, companyId: string | null) {
     const sessionId = useRef<string | null>(null);
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -53,8 +54,9 @@ function useWatchTracker(studentId: string | null, videoId: string | null) {
             event_type: eventType,
             position_sec: positionSec,
             session_id: sessionId.current,
+            company_id: companyId,
         });
-    }, [studentId, videoId]);
+    }, [studentId, videoId, companyId]);
 
     const onPlay = useCallback((getCurrentTime: () => number) => {
         sessionId.current = uuidv4();
@@ -87,13 +89,14 @@ function useWatchTracker(studentId: string | null, videoId: string | null) {
 interface VideoPlayerProps {
     video: Video;
     studentId: string;
+    companyId: string | null;
     onBack: () => void;
 }
 
-function VideoPlayer({ video, studentId, onBack }: VideoPlayerProps) {
+function VideoPlayer({ video, studentId, companyId, onBack }: VideoPlayerProps) {
     const playerDivId = `yt-player-${video.id}`;
     const playerRef = useRef<any>(null);
-    const tracker = useWatchTracker(studentId, video.id);
+    const tracker = useWatchTracker(studentId, video.id, companyId);
     const youtubeId = video.video_url ? extractYouTubeId(video.video_url) : null;
 
     useEffect(() => {
@@ -262,6 +265,7 @@ function ArticleCard({ article }: { article: Article }) {
 // ─── メイン StudentPortal コンポーネント ───
 export function StudentPortal() {
     const [student, setStudent] = useState<Student | null>(null);
+    const [companyId, setCompanyId] = useState<string | null>(null);
     const [videos, setVideos] = useState<Video[]>([]);
     const [brochures, setBrochures] = useState<Brochure[]>([]);
     const [articles, setArticles] = useState<Article[]>([]);
@@ -273,14 +277,16 @@ export function StudentPortal() {
     useEffect(() => {
         let currentStep = "STEP1";
 
-        const fetchContent = async (step: string) => {
-            const stepSettings = getStepSettings();
-
+        const fetchContent = async (step: string, stepSettings: StepSettings, cId: string | null) => {
             // ─── 動画取得（公開中 + ステップフィルタ） ───
             let videoQuery = supabase
                 .from("videos")
                 .select("*")
                 .eq("is_published", true);
+
+            if (cId) {
+                videoQuery = videoQuery.eq("company_id", cId);
+            }
 
             if (stepSettings.enabled) {
                 videoQuery = videoQuery.contains("available_phases", [step]);
@@ -291,10 +297,14 @@ export function StudentPortal() {
 
             // ─── パンフレット取得（公開中 + ステップフィルタ） ───
             // available_phases は JSONB 型のため、クライアント側でフィルタリング
-            const { data: brochureData } = await supabase
+            let brochureQuery = supabase
                 .from("brochures")
                 .select("*")
                 .eq("is_published", true);
+            if (cId) {
+                brochureQuery = brochureQuery.eq("company_id", cId);
+            }
+            const { data: brochureData } = await brochureQuery;
             setBrochures(
                 stepSettings.enabled
                     ? (brochureData || []).filter((b) =>
@@ -305,10 +315,14 @@ export function StudentPortal() {
 
             // ─── 記事取得（公開中 + ステップフィルタ） ───
             // available_phases は JSONB 型のため、クライアント側でフィルタリング
-            const { data: articleData } = await supabase
+            let articleQuery = supabase
                 .from("articles")
                 .select("*")
                 .eq("is_published", true);
+            if (cId) {
+                articleQuery = articleQuery.eq("company_id", cId);
+            }
+            const { data: articleData } = await articleQuery;
             setArticles(
                 stepSettings.enabled
                     ? (articleData || []).filter((a) =>
@@ -341,13 +355,30 @@ export function StudentPortal() {
             }
 
             setStudent(studentData);
+            const cId = studentData.company_id || null;
+            setCompanyId(cId);
 
             // ─── 視聴済み動画IDをlocalStorageから復元 ───
             const storageKey = `seen_videos_${token}`;
             const stored = localStorage.getItem(storageKey);
             setSeenVideoIds(new Set(stored ? JSON.parse(stored) : []));
 
-            const stepSettings = getStepSettings();
+            // ─── ステップ設定をDBから取得（企業別） ───
+            let stepSettings: StepSettings = DEFAULT_SETTINGS;
+            if (cId) {
+                const { data: dbSettings } = await supabase
+                    .from('company_step_settings')
+                    .select('settings')
+                    .eq('company_id', cId)
+                    .single();
+                if (dbSettings?.settings) {
+                    stepSettings = dbSettings.settings as StepSettings;
+                } else {
+                    stepSettings = getStepSettings(cId);
+                }
+            } else {
+                stepSettings = getStepSettings();
+            }
 
             // ─── 現在のステップを特定 ───
             currentStep = stepSettings.steps[0]?.id ?? "STEP1";
@@ -360,42 +391,39 @@ export function StudentPortal() {
                 }
             }
 
-            await fetchContent(currentStep);
+            await fetchContent(currentStep, stepSettings, cId);
             setLoading(false);
         };
 
         init();
 
         // ─── リアルタイム購読（公開状態の変更を即時反映） ───
+        let latestStepSettings: StepSettings = DEFAULT_SETTINGS;
+        let latestCompanyId: string | null = null;
+
+        const refreshContent = () => fetchContent(currentStep, latestStepSettings, latestCompanyId);
+
         const videoChannel = supabase
             .channel("student-video-changes")
-            .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, () =>
-                fetchContent(currentStep)
-            )
+            .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, refreshContent)
             .subscribe();
 
         const brochureChannel = supabase
             .channel("student-brochure-changes")
-            .on("postgres_changes", { event: "*", schema: "public", table: "brochures" }, () =>
-                fetchContent(currentStep)
-            )
+            .on("postgres_changes", { event: "*", schema: "public", table: "brochures" }, refreshContent)
             .subscribe();
 
         const articleChannel = supabase
             .channel("student-article-changes")
-            .on("postgres_changes", { event: "*", schema: "public", table: "articles" }, () =>
-                fetchContent(currentStep)
-            )
+            .on("postgres_changes", { event: "*", schema: "public", table: "articles" }, refreshContent)
             .subscribe();
 
         // ─── ポーリング（Realtime 未設定テーブルへのフォールバック、30秒ごと） ───
-        const pollingInterval = setInterval(() => {
-            fetchContent(currentStep);
-        }, 30000);
+        const pollingInterval = setInterval(refreshContent, 30000);
 
         // ─── タブ復帰時に即時再取得 ───
         const handleVisibilityChange = () => {
-            if (!document.hidden) fetchContent(currentStep);
+            if (!document.hidden) refreshContent();
         };
         document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -475,6 +503,7 @@ export function StudentPortal() {
                     <VideoPlayer
                         video={selectedVideo}
                         studentId={student.id}
+                        companyId={companyId}
                         onBack={() => setSelectedVideo(null)}
                     />
                 ) : (

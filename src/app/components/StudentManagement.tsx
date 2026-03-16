@@ -196,7 +196,7 @@ function SortOnlyHead({
   );
 }
 
-export function StudentManagement() {
+export function StudentManagement({ companyId }: { companyId: string }) {
   const [students, setStudents] = useState<StudentWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -219,7 +219,8 @@ export function StudentManagement() {
     const { data: studentData, error } = await supabase
       .from("students")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .eq("company_id", companyId);
 
     if (error) {
       toast.error(`データ取得エラー: ${error.message}`);
@@ -549,7 +550,7 @@ export function StudentManagement() {
             <Mail className="h-4 w-4" />
             視聴リンクを一斉送信
           </Button>
-          <AddStudentCSVDialog onSuccess={fetchStudents}>
+          <AddStudentCSVDialog onSuccess={fetchStudents} companyId={companyId}>
             <Button className="gap-2">
               <Upload className="h-4 w-4" />
               CSVで学生を追加

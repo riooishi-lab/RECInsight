@@ -13,9 +13,6 @@ if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KE
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-/**
- * Supabaseが正しく設定されているか（プレースホルダでないか）を確認する
- */
 export const isSupabaseConfigured = () => {
     return (
         import.meta.env.VITE_SUPABASE_URL &&
@@ -32,15 +29,30 @@ export const isSupabaseConfigured = () => {
 export type Phase = '認知' | '興味' | '応募' | '選定' | '内定' | '承諾'
 export type StepId = 'STEP1' | 'STEP2' | 'STEP3'
 
+export interface Company {
+    id: string
+    name: string
+    created_at: string
+}
+
+export interface AdminUser {
+    id: string
+    email: string
+    role: 'master' | 'company'
+    company_id: string | null
+    company?: Company
+    created_at: string
+}
+
 export interface Student {
     id: string
     name: string
     email: string
-    phone: string | null
     university: string | null
     department: string | null
     phase: Phase
     token: string
+    company_id: string | null
     created_at: string
 }
 
@@ -56,6 +68,7 @@ export interface Video {
     available_phases: Phase[] | null
     is_published: boolean
     is_pinned: boolean
+    company_id: string | null
     created_at: string
 }
 
@@ -68,6 +81,7 @@ export interface Brochure {
     thumbnail_url: string | null
     available_phases: string[] | null
     is_published: boolean
+    company_id: string | null
     created_at: string
 }
 
@@ -80,6 +94,7 @@ export interface Article {
     thumbnail_url: string | null
     available_phases: string[] | null
     is_published: boolean
+    company_id: string | null
     created_at: string
 }
 
@@ -92,6 +107,7 @@ export interface WatchEvent {
     event_type: WatchEventType
     position_sec: number | null
     session_id: string | null
+    company_id: string | null
     created_at: string
 }
 

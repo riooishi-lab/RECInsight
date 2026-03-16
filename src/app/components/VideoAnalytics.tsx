@@ -36,7 +36,7 @@ interface VideoDetail {
   viewers: StudentViewer[];
 }
 
-export function VideoAnalytics() {
+export function VideoAnalytics({ companyId }: { companyId: string }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
     videoData: [] as VideoStat[],
@@ -68,9 +68,9 @@ export function VideoAnalytics() {
     async function fetchData() {
       setLoading(true);
 
-      const { data: videos } = await supabase.from('videos').select('*');
-      const { data: events } = await supabase.from('watch_events').select('*, videos(category)');
-      const { data: students } = await supabase.from('students').select('*');
+      const { data: videos } = await supabase.from('videos').select('*').eq('company_id', companyId);
+      const { data: events } = await supabase.from('watch_events').select('*, videos(category)').eq('company_id', companyId);
+      const { data: students } = await supabase.from('students').select('*').eq('company_id', companyId);
 
       if (!videos || !events || !students) {
         setLoading(false);
@@ -146,7 +146,7 @@ export function VideoAnalytics() {
     }
 
     fetchData();
-  }, []);
+  }, [companyId]);
 
   const openDetail = (stat: VideoStat) => {
     const videoEvents = allEvents.filter(e => e.video_id === stat.raw.id);

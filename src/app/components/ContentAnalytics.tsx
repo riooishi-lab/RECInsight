@@ -30,7 +30,7 @@ interface VideoDetailData {
   viewers: { student: Student; watchSeconds: number; viewCount: number; lastWatched: string }[];
 }
 
-export function ContentAnalytics() {
+export function ContentAnalytics({ companyId }: { companyId: string }) {
   const [activeTab, setActiveTab] = useState<ContentTab>("all");
   const [loading, setLoading] = useState(true);
   const [videosList, setVideosList] = useState<Video[]>([]);
@@ -42,9 +42,9 @@ export function ContentAnalytics() {
     async function fetchData() {
       setLoading(true);
       const [vRes, sRes, wRes] = await Promise.all([
-        supabase.from('videos').select('*'),
-        supabase.from('students').select('*'),
-        supabase.from('watch_events').select('*')
+        supabase.from('videos').select('*').eq('company_id', companyId),
+        supabase.from('students').select('*').eq('company_id', companyId),
+        supabase.from('watch_events').select('*').eq('company_id', companyId)
       ]);
       setVideosList(vRes.data || []);
       setStudentsList(sRes.data || []);
@@ -52,7 +52,7 @@ export function ContentAnalytics() {
       setLoading(false);
     }
     fetchData();
-  }, []);
+  }, [companyId]);
 
   // 動画の統計データを計算
   const videoStats: VideoDetailStat[] = videosList.map((video) => {

@@ -19,9 +19,10 @@ interface AddArticleDialogProps {
   children: React.ReactNode;
   onSuccess?: () => void;
   article?: Article;
+  companyId?: string;
 }
 
-export function AddArticleDialog({ children, onSuccess, article }: AddArticleDialogProps) {
+export function AddArticleDialog({ children, onSuccess, article, companyId }: AddArticleDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(article?.title || "");
   const [description, setDescription] = useState(article?.description || "");
@@ -66,8 +67,9 @@ export function AddArticleDialog({ children, onSuccess, article }: AddArticleDia
       const { error } = await supabase.from("articles").insert([
         {
           ...payload,
-          available_phases: getStepSettings().steps.map((s) => s.id),
+          available_phases: getStepSettings(companyId).steps.map((s) => s.id),
           is_published: false,
+          company_id: companyId || null,
         },
       ]);
       if (error) {

@@ -19,9 +19,10 @@ interface AddBrochureDialogProps {
   children: React.ReactNode;
   onSuccess?: () => void;
   brochure?: Brochure;
+  companyId?: string;
 }
 
-export function AddBrochureDialog({ children, onSuccess, brochure }: AddBrochureDialogProps) {
+export function AddBrochureDialog({ children, onSuccess, brochure, companyId }: AddBrochureDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(brochure?.title || "");
   const [description, setDescription] = useState(brochure?.description || "");
@@ -66,8 +67,9 @@ export function AddBrochureDialog({ children, onSuccess, brochure }: AddBrochure
       const { error } = await supabase.from("brochures").insert([
         {
           ...payload,
-          available_phases: getStepSettings().steps.map((s) => s.id),
+          available_phases: getStepSettings(companyId).steps.map((s) => s.id),
           is_published: false,
+          company_id: companyId || null,
         },
       ]);
       if (error) {

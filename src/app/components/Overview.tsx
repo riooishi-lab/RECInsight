@@ -42,7 +42,7 @@ interface RawData {
   totalVideos: number;
 }
 
-export function Overview() {
+export function Overview({ companyId }: { companyId: string }) {
   const [loading, setLoading] = useState(true);
   const [rawData, setRawData] = useState<RawData>({
     students: [],
@@ -58,13 +58,14 @@ export function Overview() {
     async function fetchData() {
       setLoading(true);
 
-      const { count: videoCount } = await supabase.from('videos').select('*', { count: 'exact', head: true });
+      const { count: videoCount } = await supabase.from('videos').select('*', { count: 'exact', head: true }).eq('company_id', companyId);
 
       const { data: events } = await supabase
         .from('watch_events')
-        .select('student_id, event_type, video_id, videos(category)');
+        .select('student_id, event_type, video_id, videos(category)')
+        .eq('company_id', companyId);
 
-      const { data: studentPhases } = await supabase.from('students').select('id, phase');
+      const { data: studentPhases } = await supabase.from('students').select('id, phase').eq('company_id', companyId);
 
       const playEvents = events?.filter(e => e.event_type === 'play') || [];
       const heartbeatEvents = events?.filter(e => e.event_type === 'heartbeat') || [];
@@ -87,7 +88,7 @@ export function Overview() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [companyId]);
 
   // フィルター適用済みの統計を計算
   const stats = useMemo(() => {
