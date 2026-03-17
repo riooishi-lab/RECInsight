@@ -271,9 +271,10 @@ function CompanyApp() {
     );
   }
 
-  // マスターが通常URLにアクセスした場合もログインページを表示（企業ログインページのプレビュー用）
+  // マスターが通常URLにアクセスした場合は /master にリダイレクト
   if (adminUser.role === "master") {
-    return <Login />;
+    window.location.replace("/master");
+    return null;
   }
 
   return (
