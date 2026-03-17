@@ -24,8 +24,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .from('admin_users')
             .select('*, company:companies(*)')
             .eq('email', email)
-            .single()
-        setAdminUser(data || null)
+        // 複数レコードがある場合はmaster優先
+        const records = data || []
+        const user = records.find(u => u.role === 'master') || records[0] || null
+        setAdminUser(user)
         setLoading(false)
     }
 
