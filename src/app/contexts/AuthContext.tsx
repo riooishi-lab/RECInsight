@@ -21,10 +21,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const fetchAdminUser = async (email: string) => {
         setLoading(true)
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('admin_users')
             .select('*, company:companies(*)')
             .eq('email', email)
+        if (error) {
+            console.error('[AuthContext] admin_users fetch error:', error)
+            setAdminUser(null)
+            setLoading(false)
+            return
+        }
         // 複数レコードがある場合はmaster優先
         const records = data || []
         const user = records.find(u => u.role === 'master') || records[0] || null
@@ -33,15 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session)
-            if (session?.user?.email) {
-                fetchAdminUser(session.user.email)
-            } else {
-                setLoading(false)
-            }
-        })
-
+        // onAuthStateChange は INITIAL_SESSION イベントで即時発火するため
+        // getSession() との二重呼び出しを避ける
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session)
             if (session?.user?.email) {
