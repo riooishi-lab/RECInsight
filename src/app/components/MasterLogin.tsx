@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 
 const MASTER_EMAIL = "rio.oishi@randd-inc.com"
 
-export function MasterLogin() {
+export function MasterLogin({ error: externalError }: { error?: string } = {}) {
     const { signIn, signUp } = useAuth()
     const [password, setPassword] = useState("")
     const [loading, setLoading] = useState(false)
@@ -71,6 +71,9 @@ export function MasterLogin() {
                                 autoFocus
                             />
                         </div>
+                        {externalError && (
+                            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">{externalError}</p>
+                        )}
                         {error && (
                             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">{error}</p>
                         )}

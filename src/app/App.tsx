@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Overview } from "./components/Overview";
 import { PhaseDetail } from "./components/PhaseDetail";
 import { VideoAnalytics } from "./components/VideoAnalytics";
@@ -185,6 +185,18 @@ function MasterApp() {
   const { adminUser, loading, signOut } = useAuth();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
+  const [roleError, setRoleError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!loading && adminUser && adminUser.role !== "master") {
+      // master 以外のロールでログインした場合は即座にサインアウトしてエラーを表示
+      signOut();
+      setRoleError(
+        `このアカウント（${adminUser.email}）にはマスター管理者の権限がありません。` +
+        "管理者にお問い合わせください。"
+      );
+    }
+  }, [loading, adminUser]);
 
   if (loading) {
     return (
@@ -194,29 +206,9 @@ function MasterApp() {
     );
   }
 
-  // 未ログイン → マスター専用ログイン画面
+  // 未ログイン（またはロールエラーでサインアウト済み）→ マスター専用ログイン画面
   if (!adminUser) {
-    return <MasterLogin />;
-  }
-
-  // マスター以外のアカウントでアクセスした場合
-  if (adminUser.role !== "master") {
-    return (
-      <div className="min-h-screen bg-[#0079B3] flex items-center justify-center">
-        <div className="text-center text-white space-y-4">
-          <p className="font-semibold">このページはマスター管理者専用です</p>
-          <p className="text-sm text-white/70">
-            ログイン中: {adminUser.email}
-          </p>
-          <button
-            onClick={signOut}
-            className="mt-4 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm transition-colors"
-          >
-            ログアウトして再ログイン
-          </button>
-        </div>
-      </div>
-    );
+    return <MasterLogin error={roleError ?? undefined} />;
   }
 
   // 企業ダッシュボードを選択中
