@@ -39,9 +39,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     useEffect(() => {
-        // onAuthStateChange は INITIAL_SESSION イベントで即時発火するため
-        // getSession() との二重呼び出しを避ける
+        // getSession() で初期セッションを即時取得（loading を素早く解決）
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session)
+            if (session?.user?.email) {
+                fetchAdminUser(session.user.email)
+            } else {
+                setLoading(false)
+            }
+        })
+
+        // INITIAL_SESSION は getSession() で処理済みのためスキップ
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (_event === 'INITIAL_SESSION') return
             setSession(session)
             if (session?.user?.email) {
                 fetchAdminUser(session.user.email)
