@@ -20,6 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true)
 
     const fetchAdminUser = async (email: string) => {
+        setLoading(true)
         const { data } = await supabase
             .from('admin_users')
             .select('*, company:companies(*)')
