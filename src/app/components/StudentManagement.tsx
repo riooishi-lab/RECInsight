@@ -13,7 +13,7 @@ import {
 } from "./ui/dialog";
 import { Upload, Download, Search, Trash2, Copy, Link, Clock, Play, Calendar, Loader2, ChevronUp, ChevronDown, ChevronsUpDown, ListFilter, StickyNote, Mail, Send, CheckCircle2, XCircle } from "lucide-react";
 import { Textarea } from "./ui/textarea";
-import { supabase, supabaseUrl, supabaseAnonKey } from "../../lib/supabase";
+import { supabase, supabaseUrl } from "../../lib/supabase";
 import type { Student, Phase } from "../../lib/supabase";
 import { BRIEFING_CATEGORY } from "./AddVideoDialog";
 import { toast } from "sonner";
@@ -231,6 +231,7 @@ export function StudentManagement({ companyId }: { companyId: string }) {
     const { data: statsData } = await supabase
       .from("watch_events")
       .select("student_id, event_type, session_id")
+      .eq("company_id", companyId)
       .in("event_type", ["heartbeat"]);
 
     const statsMap: Record<string, { watch_seconds: number; view_count: number }> = {};
@@ -242,6 +243,7 @@ export function StudentManagement({ companyId }: { companyId: string }) {
     const { data: sessionData } = await supabase
       .from("watch_events")
       .select("student_id, session_id")
+      .eq("company_id", companyId)
       .eq("event_type", "play");
 
     (sessionData || []).forEach((row: { student_id: string; session_id: string }) => {
@@ -253,6 +255,7 @@ export function StudentManagement({ companyId }: { companyId: string }) {
     const { data: briefingVideos } = await supabase
       .from("videos")
       .select("id")
+      .eq("company_id", companyId)
       .eq("category", BRIEFING_CATEGORY);
     const briefingVideoIds = (briefingVideos || []).map((v: { id: string }) => v.id);
 
@@ -261,6 +264,7 @@ export function StudentManagement({ companyId }: { companyId: string }) {
       const { data: briefingEvents } = await supabase
         .from("watch_events")
         .select("student_id")
+        .eq("company_id", companyId)
         .in("video_id", briefingVideoIds)
         .eq("event_type", "play");
       (briefingEvents || []).forEach((e: { student_id: string }) => briefingWatchedSet.add(e.student_id));
@@ -275,7 +279,7 @@ export function StudentManagement({ companyId }: { companyId: string }) {
 
     setStudents(enriched);
     setLoading(false);
-  }, []);
+  }, [companyId]);
 
   const fetchWatchHistory = async (student: StudentWithStats) => {
     setSelectedStudent(student);
@@ -498,6 +502,15 @@ export function StudentManagement({ companyId }: { companyId: string }) {
     setSending(true);
     setSendResult(null);
     try {
+      // セッショントークンを使用（anon key ではなく認証済みユーザーのトークン）
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        toast.error("ログインセッションが切れています。再ログインしてください。");
+        setSending(false);
+        return;
+      }
+
       const payload = {
         students: sortedStudents.map((s) => ({ name: s.name, email: s.email, token: s.token })),
         subject: emailSubject,
@@ -508,10 +521,17 @@ export function StudentManagement({ companyId }: { companyId: string }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseAnonKey}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify(payload),
       });
+
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        toast.error("サーバーからの応答が不正です");
+        return;
+      }
+
       const result = await response.json();
       if (!response.ok) {
         toast.error(result.error || "メール送信に失敗しました");

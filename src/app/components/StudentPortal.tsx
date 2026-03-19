@@ -346,10 +346,17 @@ export function StudentPortal() {
                 .from("students")
                 .select("*")
                 .eq("token", token)
-                .single();
+                .maybeSingle();
 
             if (studentError || !studentData) {
                 setError("URLが無効または期限切れです。採用担当者にご連絡ください。");
+                setLoading(false);
+                return;
+            }
+
+            // トークン有効期限チェック
+            if (studentData.token_expires_at && new Date(studentData.token_expires_at) < new Date()) {
+                setError("このURLの有効期限が切れています。採用担当者にご連絡ください。");
                 setLoading(false);
                 return;
             }
@@ -360,8 +367,12 @@ export function StudentPortal() {
 
             // ─── 視聴済み動画IDをlocalStorageから復元 ───
             const storageKey = `seen_videos_${token}`;
-            const stored = localStorage.getItem(storageKey);
-            setSeenVideoIds(new Set(stored ? JSON.parse(stored) : []));
+            try {
+                const stored = localStorage.getItem(storageKey);
+                setSeenVideoIds(new Set(stored ? JSON.parse(stored) : []));
+            } catch {
+                setSeenVideoIds(new Set());
+            }
 
             // ─── ステップ設定をDBから取得（企業別） ───
             let stepSettings: StepSettings = DEFAULT_SETTINGS;
@@ -370,7 +381,7 @@ export function StudentPortal() {
                     .from('company_step_settings')
                     .select('settings')
                     .eq('company_id', cId)
-                    .single();
+                    .maybeSingle();
                 if (dbSettings?.settings) {
                     stepSettings = dbSettings.settings as StepSettings;
                 } else {
