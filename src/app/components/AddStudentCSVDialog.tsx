@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Upload, FileText, AlertCircle, CheckCircle2, Copy, ExternalLink, Settings } from "lucide-react";
-import { supabase, isSupabaseConfigured } from "../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 import type { Phase } from "../../lib/supabase";
 import { toast } from "sonner";
 
@@ -30,8 +30,6 @@ export function AddStudentCSVDialog({ children, onSuccess, companyId }: AddStude
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedStudents, setUploadedStudents] = useState<UploadedStudent[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const isConfigured = isSupabaseConfigured();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -104,10 +102,6 @@ export function AddStudentCSVDialog({ children, onSuccess, companyId }: AddStude
 
   const handleSubmit = async () => {
     if (!csvFile) return;
-    if (!isConfigured) {
-      setError("Supabaseの設定が完了していません。.env ファイルを確認してください。");
-      return;
-    }
 
     setIsUploading(true);
     setError("");
@@ -135,20 +129,59 @@ export function AddStudentCSVDialog({ children, onSuccess, companyId }: AddStude
         return;
       }
 
-      const studentsToUpsert = rows
-        .filter(row => (row["名前"] || row["name"]) && (row["メールアドレス"] || row["email"]))
-        .map(row => {
-          const phaseRaw = (row["フェーズ"] || row["phase"]) as Phase;
-          const phase = VALID_PHASES.includes(phaseRaw) ? phaseRaw : "認知";
-          return {
-            name: row["名前"] || row["name"],
-            email: row["メールアドレス"] || row["email"],
-            university: row["大学"] || row["university"] || null,
-            department: row["学部"] || row["department"] || null,
-            phase,
-            company_id: companyId || null,
-          };
+      // メールアドレスの簡易バリデーション
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      const validationErrors: string[] = [];
+      const seenEmails = new Set<string>();
+      const studentsToUpsert: Array<{
+        name: string; email: string; university: string | null;
+        department: string | null; phase: Phase; company_id: string | null;
+      }> = [];
+
+      rows.forEach((row, i) => {
+        const name = (row["名前"] || row["name"] || "").trim();
+        const email = (row["メールアドレス"] || row["email"] || "").trim().toLowerCase();
+
+        if (!name || !email) return; // 必須フィールド欠損はスキップ
+
+        if (!emailRegex.test(email)) {
+          validationErrors.push(`行${i + 2}: メールアドレス形式が不正 (${email})`);
+          return;
+        }
+
+        if (seenEmails.has(email)) {
+          validationErrors.push(`行${i + 2}: メールアドレスが重複 (${email})`);
+          return;
+        }
+        seenEmails.add(email);
+
+        if (name.length > 100) {
+          validationErrors.push(`行${i + 2}: 名前が長すぎます (100文字以内)`);
+          return;
+        }
+
+        const phaseRaw = (row["フェーズ"] || row["phase"]) as Phase;
+        const phase = VALID_PHASES.includes(phaseRaw) ? phaseRaw : "認知";
+
+        studentsToUpsert.push({
+          name,
+          email,
+          university: (row["大学"] || row["university"] || "").trim() || null,
+          department: (row["学部"] || row["department"] || "").trim() || null,
+          phase,
+          company_id: companyId || null,
         });
+      });
+
+      if (validationErrors.length > 0) {
+        const maxShow = 5;
+        const msg = validationErrors.slice(0, maxShow).join("\n");
+        const more = validationErrors.length > maxShow ? `\n...他${validationErrors.length - maxShow}件のエラー` : "";
+        setError(`バリデーションエラー:\n${msg}${more}`);
+        setIsUploading(false);
+        return;
+      }
 
       if (studentsToUpsert.length === 0) {
         setError("有効なデータが見つかりませんでした。ヘッダー（名前, メールアドレス）が正しいか確認してください。");
@@ -266,17 +299,6 @@ export function AddStudentCSVDialog({ children, onSuccess, companyId }: AddStude
           ) : (
             /* アップロードフォーム */
             <>
-              {/* Supabase設定警告 */}
-              {!isConfigured && (
-                <Alert variant="destructive" className="border-red-200 bg-red-50">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-red-800">
-                    <p className="font-bold">Supabaseの接続設定が必要です</p>
-                    <p className="text-sm">.env ファイルに正しいURLとキーを設定してください。現在の設定ではアップロードできません。</p>
-                  </AlertDescription>
-                </Alert>
-              )}
-
               {/* CSVフォーマット説明 */}
               <Alert>
                 <FileText className="h-4 w-4" />
@@ -315,7 +337,7 @@ export function AddStudentCSVDialog({ children, onSuccess, companyId }: AddStude
                   onChange={handleFileChange}
                   ref={fileInputRef}
                   className="cursor-pointer"
-                  disabled={!isConfigured || isUploading}
+                  disabled={isUploading}
                 />
                 {csvFile && (
                   <div className="text-sm text-green-600 flex items-center gap-2">
@@ -335,7 +357,7 @@ export function AddStudentCSVDialog({ children, onSuccess, companyId }: AddStude
               <div className="flex gap-3">
                 <Button
                   onClick={handleSubmit}
-                  disabled={!csvFile || isUploading || !isConfigured}
+                  disabled={!csvFile || isUploading || false}
                   className="flex-1"
                 >
                   <Upload className="h-4 w-4 mr-2" />

@@ -1,26 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder'
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-    console.error(
+if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
         '【重要】Supabaseの環境変数が設定されていません。\n' +
         'プロジェクト直下に .env ファイルを作成し、VITE_SUPABASE_URL と VITE_SUPABASE_ANON_KEY を設定してください。\n' +
-        '詳細は walkthrough.md を参照してください。'
+        '詳細は .env.example を参照してください。'
     )
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-export const isSupabaseConfigured = () => {
-    return (
-        import.meta.env.VITE_SUPABASE_URL &&
-        import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co' &&
-        import.meta.env.VITE_SUPABASE_ANON_KEY &&
-        import.meta.env.VITE_SUPABASE_ANON_KEY !== 'placeholder'
-    )
-}
 
 // ─────────────────────────────────────────────
 // データベース型定義
@@ -52,6 +43,7 @@ export interface Student {
     department: string | null
     phase: Phase
     token: string
+    token_expires_at: string
     company_id: string | null
     created_at: string
 }

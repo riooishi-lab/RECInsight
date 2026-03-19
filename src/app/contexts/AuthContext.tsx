@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { Session } from '@supabase/supabase-js'
 import type { AdminUser } from '../../lib/supabase'
@@ -19,14 +19,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [adminUser, setAdminUser] = useState<AdminUser | null>(null)
     const [loading, setLoading] = useState(true)
 
-    const fetchAdminUser = async (email: string) => {
+    // レースコンディション防止: 最新のリクエストIDのみ結果を適用
+    const fetchIdRef = useRef(0)
+
+    const fetchAdminUser = useCallback(async (email: string) => {
+        const currentFetchId = ++fetchIdRef.current
         setLoading(true)
         const { data, error } = await supabase
             .from('admin_users')
             .select('*, company:companies(*)')
             .eq('email', email)
+
+        // 古いリクエストの結果は無視
+        if (currentFetchId !== fetchIdRef.current) return
+
         if (error) {
-            console.error('[AuthContext] admin_users fetch error:', error)
+            console.error('[AuthContext] admin_users fetch error')
             setAdminUser(null)
             setLoading(false)
             return
@@ -36,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = records.find(u => u.role === 'master') || records[0] || null
         setAdminUser(user)
         setLoading(false)
-    }
+    }, [])
 
     useEffect(() => {
         // getSession() で初期セッションを即時取得（loading を素早く解決）
@@ -62,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
 
         return () => subscription.unsubscribe()
-    }, [])
+    }, [fetchAdminUser])
 
     const signIn = async (email: string, password: string) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -76,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .from('admin_users')
             .select('id')
             .eq('email', email)
-            .single()
+            .maybeSingle()
         if (!adminRecord) {
             return { error: 'このメールアドレスは管理者として登録されていません' }
         }

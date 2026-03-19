@@ -6,7 +6,7 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 
-const MASTER_EMAIL = "rio.oishi@randd-inc.com"
+const MASTER_EMAIL = import.meta.env.VITE_MASTER_ADMIN_EMAIL || "rio.oishi@randd-inc.com"
 
 export function MasterLogin({ error: externalError }: { error?: string } = {}) {
     const { signIn, signUp } = useAuth()
