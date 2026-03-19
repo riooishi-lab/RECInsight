@@ -87,7 +87,7 @@ export function VideoAnalytics({ companyId }: { companyId: string }) {
         const heartbeats = vEvents.filter(e => e.event_type === 'heartbeat');
 
         const viewerIds = new Set(playEvents.map(e => e.student_id));
-        const watchSec = heartbeats.length * 5;
+        const watchSec = heartbeats.length * 30;
         const totalWatchMin = Math.floor(watchSec / 60);
 
         return {
@@ -122,7 +122,7 @@ export function VideoAnalytics({ companyId }: { companyId: string }) {
         PHASES.forEach(phase => {
           const phaseStudentIds = students.filter(s => s.phase === phase).map(s => s.id);
           const catHeartbeats = events.filter(e => e.videos?.category === cat && e.event_type === 'heartbeat' && phaseStudentIds.includes(e.student_id));
-          res[phase] = Math.floor((catHeartbeats.length * 5) / 60);
+          res[phase] = Math.floor((catHeartbeats.length * 30) / 60);
         });
         return res;
       });
@@ -158,7 +158,7 @@ export function VideoAnalytics({ companyId }: { companyId: string }) {
       }
       const v = viewerMap.get(e.student_id)!;
       if (e.event_type === 'play') v.viewCount += 1;
-      if (e.event_type === 'heartbeat') v.watchSeconds += 5;
+      if (e.event_type === 'heartbeat') v.watchSeconds += 30;
       if (new Date(e.created_at) > new Date(v.lastWatched)) v.lastWatched = e.created_at;
     });
 

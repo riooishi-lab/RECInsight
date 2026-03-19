@@ -15,8 +15,28 @@ import { Upload, Download, Search, Trash2, Copy, Link, Clock, Play, Calendar, Lo
 import { Textarea } from "./ui/textarea";
 import { supabase, supabaseUrl } from "../../lib/supabase";
 import type { Student, Phase } from "../../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { BRIEFING_CATEGORY } from "./AddVideoDialog";
 import { toast } from "sonner";
+
+// 監査ログ記録ヘルパー
+async function writeAuditLog(
+  actorEmail: string,
+  action: string,
+  targetType: string,
+  targetId: string | null,
+  companyId: string,
+  details: Record<string, unknown> = {}
+) {
+  await supabase.from("audit_logs").insert({
+    actor_email: actorEmail,
+    action,
+    target_type: targetType,
+    target_id: targetId,
+    company_id: companyId,
+    details,
+  });
+}
 
 interface StudentWithStats extends Student {
   watch_seconds: number;
@@ -197,6 +217,8 @@ function SortOnlyHead({
 }
 
 export function StudentManagement({ companyId }: { companyId: string }) {
+  const { adminUser } = useAuth();
+  const actorEmail = adminUser?.email || "unknown";
   const [students, setStudents] = useState<StudentWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -237,7 +259,7 @@ export function StudentManagement({ companyId }: { companyId: string }) {
     const statsMap: Record<string, { watch_seconds: number; view_count: number }> = {};
     (statsData || []).forEach((row: { student_id: string; event_type: string; session_id: string }) => {
       if (!statsMap[row.student_id]) statsMap[row.student_id] = { watch_seconds: 0, view_count: 0 };
-      statsMap[row.student_id].watch_seconds += 5;
+      statsMap[row.student_id].watch_seconds += 30;
     });
 
     const { data: sessionData } = await supabase
@@ -251,7 +273,8 @@ export function StudentManagement({ companyId }: { companyId: string }) {
       statsMap[row.student_id].view_count += 1;
     });
 
-    // 会社説明会動画の視聴判断
+    // 会社説明会動画の視聴判断（heartbeat 6回以上 = 約3分以上視聴で「視聴済み」）
+    const BRIEFING_MIN_HEARTBEATS = 6;
     const { data: briefingVideos } = await supabase
       .from("videos")
       .select("id")
@@ -263,11 +286,18 @@ export function StudentManagement({ companyId }: { companyId: string }) {
     if (briefingVideoIds.length > 0) {
       const { data: briefingEvents } = await supabase
         .from("watch_events")
-        .select("student_id")
+        .select("student_id, event_type")
         .eq("company_id", companyId)
         .in("video_id", briefingVideoIds)
-        .eq("event_type", "play");
-      (briefingEvents || []).forEach((e: { student_id: string }) => briefingWatchedSet.add(e.student_id));
+        .in("event_type", ["heartbeat"]);
+      // 学生ごとのheartbeat数をカウント
+      const briefingCounts: Record<string, number> = {};
+      (briefingEvents || []).forEach((e: { student_id: string }) => {
+        briefingCounts[e.student_id] = (briefingCounts[e.student_id] || 0) + 1;
+      });
+      Object.entries(briefingCounts).forEach(([studentId, count]) => {
+        if (count >= BRIEFING_MIN_HEARTBEATS) briefingWatchedSet.add(studentId);
+      });
     }
 
     const enriched: StudentWithStats[] = (studentData || []).map((s: Student) => ({
@@ -315,7 +345,7 @@ export function StudentManagement({ companyId }: { companyId: string }) {
           sessionMap[sid].started_at = event.created_at;
         }
       }
-      if (event.event_type === "heartbeat") sessionMap[sid].watch_seconds += 5;
+      if (event.event_type === "heartbeat") sessionMap[sid].watch_seconds += 30;
     });
 
     const logs = Object.values(sessionMap).sort(
@@ -438,6 +468,8 @@ export function StudentManagement({ companyId }: { companyId: string }) {
   };
 
   const updatePhase = async (id: string, newPhase: Phase) => {
+    const student = students.find((s) => s.id === id);
+    const oldPhase = student?.phase;
     const { error } = await supabase
       .from("students")
       .update({ phase: newPhase })
@@ -448,16 +480,29 @@ export function StudentManagement({ companyId }: { companyId: string }) {
     } else {
       toast.success(`フェーズを「${newPhase}」に変更しました`);
       setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, phase: newPhase } : s)));
+      writeAuditLog(actorEmail, "phase_change", "student", id, companyId, {
+        student_name: student?.name,
+        old_phase: oldPhase,
+        new_phase: newPhase,
+      });
     }
   };
 
   const deleteStudent = async (id: string) => {
+    const student = students.find((s) => s.id === id);
+    if (!confirm(`${student?.name || "この学生"} のデータを完全に削除しますか？\n視聴履歴・メモも全て削除されます。この操作は取り消せません。`)) {
+      return;
+    }
     const { error } = await supabase.from("students").delete().eq("id", id);
     if (error) {
       toast.error(`削除エラー: ${error.message}`);
     } else {
-      toast.success("学生を削除しました");
+      toast.success("学生データを完全に削除しました");
       setStudents((prev) => prev.filter((s) => s.id !== id));
+      writeAuditLog(actorEmail, "student_delete", "student", id, companyId, {
+        student_name: student?.name,
+        student_email: student?.email,
+      });
     }
   };
 
@@ -474,17 +519,42 @@ export function StudentManagement({ companyId }: { companyId: string }) {
     });
   };
 
-  const openMemo = (student: StudentWithStats) => {
+  const [memoLoading, setMemoLoading] = useState(false);
+
+  const openMemo = async (student: StudentWithStats) => {
     setMemoStudent(student);
-    setMemoText(localStorage.getItem(`student_memo_${student.id}`) || "");
+    setMemoLoading(true);
+    setMemoText("");
+    // DBからメモを取得
+    const { data } = await supabase
+      .from("student_memos")
+      .select("content")
+      .eq("student_id", student.id)
+      .eq("author_email", actorEmail)
+      .maybeSingle();
+    setMemoText(data?.content || "");
+    setMemoLoading(false);
   };
 
-  const saveMemo = () => {
+  const saveMemo = async () => {
     if (!memoStudent) return;
     if (memoText.trim()) {
-      localStorage.setItem(`student_memo_${memoStudent.id}`, memoText);
+      await supabase
+        .from("student_memos")
+        .upsert({
+          student_id: memoStudent.id,
+          company_id: companyId,
+          author_email: actorEmail,
+          content: memoText.trim(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "student_id,author_email" });
+      toast.success("メモを保存しました");
     } else {
-      localStorage.removeItem(`student_memo_${memoStudent.id}`);
+      await supabase
+        .from("student_memos")
+        .delete()
+        .eq("student_id", memoStudent.id)
+        .eq("author_email", actorEmail);
     }
     setMemoStudent(null);
   };
@@ -540,6 +610,12 @@ export function StudentManagement({ companyId }: { companyId: string }) {
       setSendResult(result);
       if (result.sent > 0) toast.success(`${result.sent}件のメールを送信しました`);
       if (result.failed > 0) toast.error(`${result.failed}件の送信に失敗しました`);
+      writeAuditLog(actorEmail, "bulk_email", "email", null, companyId, {
+        recipient_count: sortedStudents.length,
+        sent: result.sent,
+        failed: result.failed,
+        subject: emailSubject,
+      });
     } catch {
       toast.error("通信エラーが発生しました");
     } finally {
@@ -874,15 +950,21 @@ export function StudentManagement({ companyId }: { companyId: string }) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <Textarea
-              placeholder="メモを入力してください..."
-              value={memoText}
-              onChange={(e) => setMemoText(e.target.value)}
-              rows={6}
-            />
+            {memoLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : (
+              <Textarea
+                placeholder="メモを入力してください..."
+                value={memoText}
+                onChange={(e) => setMemoText(e.target.value)}
+                rows={6}
+              />
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setMemoStudent(null)}>キャンセル</Button>
-              <Button onClick={saveMemo}>保存</Button>
+              <Button onClick={saveMemo} disabled={memoLoading}>保存</Button>
             </div>
           </div>
         </DialogContent>

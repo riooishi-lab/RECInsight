@@ -103,7 +103,7 @@ export function Overview({ companyId }: { companyId: string }) {
 
     const totalStudents = filteredStudentIds.size;
     const totalViews = filteredPlays.length;
-    const totalWatchSec = filteredHeartbeats.length * 5;
+    const totalWatchSec = filteredHeartbeats.length * 30;
     const totalWatchTimeMin = Math.floor(totalWatchSec / 60);
     const avgViewsPerStudent = totalStudents > 0 ? (totalViews / totalStudents).toFixed(1) : "0.0";
     const avgWatchTimePerStudent = totalStudents > 0 ? Math.floor(totalWatchTimeMin / totalStudents) : 0;
@@ -125,7 +125,7 @@ export function Overview({ companyId }: { companyId: string }) {
     });
     filteredHeartbeats.forEach((e: any) => {
       const cat = e.videos?.category || "未分類";
-      catTimeMap[cat] = (catTimeMap[cat] || 0) + 5;
+      catTimeMap[cat] = (catTimeMap[cat] || 0) + 30;
     });
 
     const categoryData = Object.entries(catCountMap).map(([name, count]) => ({ name, 視聴回数: count }));
@@ -143,7 +143,7 @@ export function Overview({ companyId }: { companyId: string }) {
         studentCount: studentsInPhase.length,
         avgVideos: studentsInPhase.length > 0 ? (uniqueVideos / studentsInPhase.length).toFixed(1) : "0.0",
         totalViews: phasePlays.length,
-        totalTime: Math.floor((phaseHeartbeats.length * 5) / 60),
+        totalTime: Math.floor((phaseHeartbeats.length * 30) / 60),
       };
     });
 

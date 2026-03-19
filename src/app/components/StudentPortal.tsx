@@ -63,7 +63,7 @@ function useWatchTracker(studentId: string | null, videoId: string | null, compa
         recordEvent("play", getCurrentTime());
         heartbeatRef.current = setInterval(() => {
             recordEvent("heartbeat", getCurrentTime());
-        }, 5000);
+        }, 30000);
     }, [recordEvent]);
 
     const onPause = useCallback((positionSec: number) => {
@@ -356,7 +356,10 @@ export function StudentPortal() {
 
             // トークン有効期限チェック
             if (studentData.token_expires_at && new Date(studentData.token_expires_at) < new Date()) {
-                setError("このURLの有効期限が切れています。採用担当者にご連絡ください。");
+                setError(
+                    "このURLの有効期限が切れています。\n" +
+                    "引き続きコンテンツをご覧になりたい場合は、採用担当者に新しいURLの発行をご依頼ください。"
+                );
                 setLoading(false);
                 return;
             }
