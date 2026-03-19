@@ -63,7 +63,7 @@ function useWatchTracker(studentId: string | null, videoId: string | null, compa
         recordEvent("play", getCurrentTime());
         heartbeatRef.current = setInterval(() => {
             recordEvent("heartbeat", getCurrentTime());
-        }, 5000);
+        }, 30000);
     }, [recordEvent]);
 
     const onPause = useCallback((positionSec: number) => {
@@ -356,7 +356,10 @@ export function StudentPortal() {
 
             // トークン有効期限チェック
             if (studentData.token_expires_at && new Date(studentData.token_expires_at) < new Date()) {
-                setError("このURLの有効期限が切れています。採用担当者にご連絡ください。");
+                setError(
+                    "このURLの有効期限が切れています。\n" +
+                    "引き続きコンテンツをご覧になりたい場合は、採用担当者に新しいURLの発行をご依頼ください。"
+                );
                 setLoading(false);
                 return;
             }
@@ -411,26 +414,42 @@ export function StudentPortal() {
         // ─── リアルタイム購読（公開状態の変更を即時反映） ───
         let latestStepSettings: StepSettings = DEFAULT_SETTINGS;
         let latestCompanyId: string | null = null;
+        let realtimeConnected = false;
+        let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
         const refreshContent = () => fetchContent(currentStep, latestStepSettings, latestCompanyId);
 
-        const videoChannel = supabase
-            .channel("student-video-changes")
+        // ポーリング開始/停止ヘルパー
+        const startPolling = () => {
+            if (!pollingInterval) {
+                pollingInterval = setInterval(refreshContent, 30000);
+            }
+        };
+        const stopPolling = () => {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        };
+
+        // Realtime: 単一チャンネルで全テーブルを購読
+        const channel = supabase
+            .channel("student-content-changes")
             .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, refreshContent)
-            .subscribe();
-
-        const brochureChannel = supabase
-            .channel("student-brochure-changes")
             .on("postgres_changes", { event: "*", schema: "public", table: "brochures" }, refreshContent)
-            .subscribe();
-
-        const articleChannel = supabase
-            .channel("student-article-changes")
             .on("postgres_changes", { event: "*", schema: "public", table: "articles" }, refreshContent)
-            .subscribe();
+            .subscribe((status) => {
+                if (status === "SUBSCRIBED") {
+                    realtimeConnected = true;
+                    stopPolling(); // Realtime 接続成功 → ポーリング停止
+                } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+                    realtimeConnected = false;
+                    startPolling(); // Realtime 切断 → ポーリングにフォールバック
+                }
+            });
 
-        // ─── ポーリング（Realtime 未設定テーブルへのフォールバック、30秒ごと） ───
-        const pollingInterval = setInterval(refreshContent, 30000);
+        // 初期状態: Realtime接続まではポーリングで補完
+        startPolling();
 
         // ─── タブ復帰時に即時再取得 ───
         const handleVisibilityChange = () => {
@@ -439,10 +458,8 @@ export function StudentPortal() {
         document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
-            supabase.removeChannel(videoChannel);
-            supabase.removeChannel(brochureChannel);
-            supabase.removeChannel(articleChannel);
-            clearInterval(pollingInterval);
+            supabase.removeChannel(channel);
+            stopPolling();
             document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
     }, []);

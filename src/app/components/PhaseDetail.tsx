@@ -61,7 +61,7 @@ export function PhaseDetail({ companyId }: { companyId: string }) {
       return { title: video?.title || "不明な動画", count };
     });
 
-    const totalSeconds = heartbeats.length * 5;
+    const totalSeconds = heartbeats.length * 30;
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
 

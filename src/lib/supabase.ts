@@ -109,3 +109,24 @@ export interface PhaseRecord {
     order_no: number | null
     color: string
 }
+
+export interface AuditLog {
+    id: string
+    actor_email: string
+    action: string
+    target_type: string
+    target_id: string | null
+    company_id: string | null
+    details: Record<string, unknown>
+    created_at: string
+}
+
+export interface StudentMemo {
+    id: string
+    student_id: string
+    company_id: string | null
+    author_email: string
+    content: string
+    updated_at: string
+    created_at: string
+}
