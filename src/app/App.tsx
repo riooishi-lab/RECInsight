@@ -11,6 +11,7 @@ import { Login } from "./components/Login";
 import { MasterLogin } from "./components/MasterLogin";
 import { MasterDashboard } from "./components/MasterDashboard";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { BarChart3, Home, TrendingUp, FolderOpen, Users, GraduationCap, Book, Layers, LogOut, ChevronLeft, Building2 } from "lucide-react";
 import { Toaster } from "sonner";
 
@@ -238,7 +239,7 @@ function MasterApp() {
 
 // ─── 企業管理者フロー（通常パス）───
 function CompanyApp() {
-  const { adminUser, loading } = useAuth();
+  const { adminUser, loading, signOut } = useAuth();
 
   if (loading) {
     return (
@@ -263,10 +264,34 @@ function CompanyApp() {
     );
   }
 
-  // マスターが通常URLにアクセスした場合は /master にリダイレクト
+  // マスターが通常URLにアクセスした場合はサインアウトを促す
   if (adminUser.role === "master") {
-    window.location.replace("/master");
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-gray-500 space-y-4">
+          <Building2 className="h-12 w-12 mx-auto text-gray-300" />
+          <p>マスター管理者としてログイン中です。</p>
+          <p className="text-sm text-gray-400">企業としてログインするにはサインアウトしてください。</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => window.location.replace("/master")}
+              className="px-4 py-2 text-sm bg-[#0079B3] text-white rounded-lg hover:bg-[#005a86] transition-colors"
+            >
+              マスター画面に戻る
+            </button>
+            <button
+              onClick={async () => {
+                await signOut();
+                window.location.reload();
+              }}
+              className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              サインアウト
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -284,37 +309,33 @@ export default function App() {
 
   // /watch → 学生ポータル（認証不要）
   if (pathname === "/watch") {
-    try {
-      return (
-        <>
-          <StudentPortal />
-          <Toaster richColors position="top-right" />
-        </>
-      );
-    } catch (e: any) {
-      return <div className="p-10 text-red-600 bg-red-50">Portal Error: {e.message}</div>;
-    }
+    return (
+      <ErrorBoundary fallbackMessage="ポータルの読み込みに失敗しました">
+        <StudentPortal />
+        <Toaster richColors position="top-right" />
+      </ErrorBoundary>
+    );
   }
 
   // /master → マスター管理者フロー
   if (pathname === "/master" || pathname.startsWith("/master/")) {
     return (
-      <>
+      <ErrorBoundary fallbackMessage="管理画面の読み込みに失敗しました">
         <Toaster richColors position="top-right" />
         <AuthProvider>
           <MasterApp />
         </AuthProvider>
-      </>
+      </ErrorBoundary>
     );
   }
 
   // それ以外 → 企業管理者フロー
   return (
-    <>
+    <ErrorBoundary fallbackMessage="管理画面の読み込みに失敗しました">
       <Toaster richColors position="top-right" />
       <AuthProvider>
         <CompanyApp />
       </AuthProvider>
-    </>
+    </ErrorBoundary>
   );
 }
